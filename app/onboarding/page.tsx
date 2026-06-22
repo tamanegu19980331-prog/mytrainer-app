@@ -5,7 +5,6 @@ import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
 export default function OnboardingPage() {
-  const [step, setStep] = useState(1)
   const [profile, setProfile] = useState({
     name: '', gender: '', height: '', weight: ''
   })
@@ -40,7 +39,7 @@ export default function OnboardingPage() {
         weight: Number(profile.weight),
       })
 
-      router.push('/dashboard')
+      router.push('/goal')
     } catch (e) {
       console.error(e)
     } finally {
@@ -53,7 +52,6 @@ export default function OnboardingPage() {
       color: '#e8e8e8', display: 'flex', justifyContent: 'center' }}>
       <div style={{ width: '100%', maxWidth: 480, padding: '20px 16px' }}>
 
-        {/* ヘッダー */}
         <div style={{ padding: '14px 0 12px', borderBottom: '1px solid #2a2a36',
           display: 'flex', alignItems: 'center', marginBottom: 20 }}>
           <span style={{ fontSize: 11, fontWeight: 800, color: '#39ff14',
@@ -63,7 +61,6 @@ export default function OnboardingPage() {
           </span>
         </div>
 
-        {/* カード */}
         <div style={{ background: '#1e1e26', borderRadius: 16,
           padding: '20px 16px', border: '1px solid #2a2a36' }}>
 
@@ -78,7 +75,6 @@ export default function OnboardingPage() {
             性別によって診断内容が変わります。
           </p>
 
-          {/* ニックネーム */}
           <div style={{ marginBottom: 12 }}>
             <label style={{ fontSize: 10, color: '#666', fontWeight: 700,
               letterSpacing: 1, display: 'block', marginBottom: 4 }}>
@@ -95,7 +91,6 @@ export default function OnboardingPage() {
             />
           </div>
 
-          {/* 性別 */}
           <div style={{ marginBottom: 12 }}>
             <label style={{ fontSize: 10, color: '#666', fontWeight: 700,
               letterSpacing: 1, display: 'block', marginBottom: 4 }}>
@@ -120,15 +115,13 @@ export default function OnboardingPage() {
             </div>
           </div>
 
-          {/* 身長・体重 */}
           <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
             <div style={{ flex: 1 }}>
               <label style={{ fontSize: 10, color: '#666', fontWeight: 700,
                 letterSpacing: 1, display: 'block', marginBottom: 4 }}>
                 身長 (cm)
               </label>
-              <input
-                type="number"
+              <input type="number"
                 style={{ width: '100%', background: '#25252f',
                   border: '1px solid #2a2a36', borderRadius: 10,
                   padding: '10px 12px', color: '#e8e8e8', fontSize: 14,
@@ -143,8 +136,7 @@ export default function OnboardingPage() {
                 letterSpacing: 1, display: 'block', marginBottom: 4 }}>
                 体重 (kg)
               </label>
-              <input
-                type="number"
+              <input type="number"
                 style={{ width: '100%', background: '#25252f',
                   border: '1px solid #2a2a36', borderRadius: 10,
                   padding: '10px 12px', color: '#e8e8e8', fontSize: 14,
@@ -156,7 +148,6 @@ export default function OnboardingPage() {
             </div>
           </div>
 
-          {/* BMI表示 */}
           {bmi && (
             <div style={{ background: '#25252f', border: '1px solid #2a2a36',
               borderRadius: 10, padding: '10px 14px', marginBottom: 14 }}>
@@ -177,9 +168,7 @@ export default function OnboardingPage() {
             </div>
           )}
 
-          {/* ボタン */}
-          <button
-            onClick={saveProfile}
+          <button onClick={saveProfile}
             disabled={loading || !profile.name || !profile.gender
               || !profile.height || !profile.weight}
             style={{ width: '100%', padding: '14px',

@@ -14,19 +14,9 @@ export default function DashboardPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/auth'); return }
       setUser(user)
-
-      // プロフィール確認
       const { data } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', user.id)
-        .single()
-
-      if (!data) {
-        // 未登録ならオンボーディングへ
-        router.push('/onboarding')
-        return
-      }
+        .from('users').select('*').eq('id', user.id).single()
+      if (!data) { router.push('/onboarding'); return }
       setProfile(data)
     }
     init()
@@ -48,20 +38,18 @@ export default function DashboardPage() {
         <div style={{ display: 'flex', justifyContent: 'space-between',
           alignItems: 'center', marginBottom: 24 }}>
           <div>
-            <div style={{ fontSize: 11, fontWeight: 800, color: '#39ff14',
-              letterSpacing: 3 }}>⚡ MY TRAINER</div>
+            <div style={{ fontSize: 11, fontWeight: 800,
+              color: '#39ff14', letterSpacing: 3 }}>⚡ MY TRAINER</div>
             <div style={{ fontSize: 13, color: '#666', marginTop: 2 }}>
               こんにちは、{profile.name}さん！
             </div>
           </div>
-          <button
-            onClick={async () => {
-              await supabase.auth.signOut()
-              router.push('/auth')
-            }}
-            style={{ padding: '8px 14px', background: 'transparent',
-              border: '1px solid #2a2a36', borderRadius: 8,
-              color: '#666', fontSize: 12, cursor: 'pointer' }}>
+          <button onClick={async () => {
+            await supabase.auth.signOut()
+            router.push('/auth')
+          }} style={{ padding: '8px 14px', background: 'transparent',
+            border: '1px solid #2a2a36', borderRadius: 8,
+            color: '#666', fontSize: 12, cursor: 'pointer' }}>
             ログアウト
           </button>
         </div>
@@ -71,8 +59,8 @@ export default function DashboardPage() {
           padding: '20px', border: '1px solid #2a2a36', marginBottom: 16 }}>
           <div style={{ fontSize: 10, letterSpacing: 2, color: '#39ff14',
             fontWeight: 700, marginBottom: 12 }}>📊 あなたのデータ</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)',
-            gap: 10 }}>
+          <div style={{ display: 'grid',
+            gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
             {[
               { label: '性別', value: profile.gender },
               { label: '身長', value: profile.height + 'cm' },
@@ -91,16 +79,23 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* 次のステップ */}
+        {/* メニュー生成カード */}
         <div style={{ background: '#1e1e26', borderRadius: 16,
-          padding: '20px', border: '1px solid #2a2a36', textAlign: 'center' }}>
+          padding: '24px', border: '1px solid #2a2a36', textAlign: 'center' }}>
           <div style={{ fontSize: 32, marginBottom: 8 }}>🚀</div>
           <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 8 }}>
-            次は診断・メニュー生成を実装します！
+            今日のメニューを生成しましょう！
           </div>
-          <div style={{ fontSize: 12, color: '#666' }}>
-            HTML版の全機能をここに移植していきます
+          <div style={{ fontSize: 12, color: '#666', marginBottom: 16 }}>
+            診断 → 姿勢チェック → AIメニュー生成
           </div>
+          <button onClick={() => router.push('/goal')}
+            style={{ width: '100%', padding: '14px',
+              background: '#39ff14', color: '#000',
+              border: 'none', borderRadius: 12,
+              fontSize: 14, fontWeight: 800, cursor: 'pointer' }}>
+            診断をはじめる →
+          </button>
         </div>
 
       </div>

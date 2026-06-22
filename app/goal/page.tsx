@@ -116,7 +116,7 @@ export default function GoalPage() {
 
         {/* ボタン */}
         <button
-          onClick={() => router.push('/diagnosis')}
+onClick={() => router.push('/posture')}
           disabled={!selId}
           style={{ width: '100%', padding: '14px',
             background: '#39ff14', color: '#000',

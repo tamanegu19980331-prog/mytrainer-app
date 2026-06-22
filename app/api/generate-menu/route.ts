@@ -5,13 +5,51 @@ const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 })
 
+const POSTURE_EXERCISES: Record<string, any[]> = {
+  anterior_tilt: [
+    {name:"ハーフニーリングストレッチ",muscle:"腸腰筋",sets:3,reps:"30秒（両側）",durationSec:30,restSec:20,why:"硬くなった腸腰筋をほぐす"},
+    {name:"ヒップリフト",muscle:"臀部・ハムスト",sets:3,reps:"15回",durationSec:35,restSec:30,why:"弱くなった臀部を強化"},
+  ],
+  posterior_tilt: [
+    {name:"ハムストリングスストレッチ",muscle:"ハムスト",sets:3,reps:"30秒（両側）",durationSec:30,restSec:20,why:"硬くなったハムストリングスをほぐす"},
+    {name:"バードドッグ",muscle:"脊柱起立筋",sets:3,reps:"10回（両側）",durationSec:35,restSec:30,why:"腰背部を強化"},
+  ],
+  rounded_shoulders: [
+    {name:"胸筋ストレッチ",muscle:"大胸筋",sets:3,reps:"30秒（両側）",durationSec:30,restSec:20,why:"縮こまった胸筋をほぐす"},
+    {name:"YTWL（肩甲骨安定）",muscle:"菱形筋・僧帽筋",sets:3,reps:"各10回",durationSec:40,restSec:30,why:"肩甲骨周りを4方向から鍛える"},
+  ],
+  kyphosis: [
+    {name:"スーパーマン",muscle:"脊柱起立筋",sets:3,reps:"12回",durationSec:30,restSec:30,why:"背中全体の筋肉を強化"},
+    {name:"YTWL（胸椎伸展）",muscle:"脊柱起立筋・菱形筋",sets:3,reps:"各8回",durationSec:40,restSec:30,why:"猫背の逆方向で胸椎を伸展"},
+  ],
+  straight_neck: [
+    {name:"チンタック",muscle:"深頸屈筋",sets:5,reps:"10回（5秒キープ）",durationSec:25,restSec:15,why:"前に出た頭を正しい位置に戻す"},
+    {name:"YTWL（壁立ち版）",muscle:"菱形筋・僧帽筋",sets:3,reps:"各8回",durationSec:35,restSec:30,why:"首・肩甲骨を正しい位置で安定させる"},
+  ],
+  elevated_shoulders: [
+    {name:"ネックストレッチ（側屈）",muscle:"僧帽筋上部",sets:3,reps:"30秒（両側）",durationSec:30,restSec:20,why:"過緊張した僧帽筋上部をほぐす"},
+    {name:"YTWL（肩甲骨下制）",muscle:"僧帽筋下部・菱形筋",sets:3,reps:"各10回",durationSec:40,restSec:30,why:"肩を下げる筋肉を強化"},
+  ],
+  o_legs: [
+    {name:"内転筋スクイーズ",muscle:"内転筋",sets:3,reps:"15回（10秒キープ）",durationSec:30,restSec:20,why:"弱くなった内転筋を強化"},
+    {name:"スモウスクワット",muscle:"内転筋・臀部",sets:3,reps:"15回",durationSec:35,restSec:30,why:"内転筋と臀部を同時に強化"},
+  ],
+  x_legs: [
+    {name:"サイドライングレッグレイズ",muscle:"中臀筋",sets:3,reps:"15回（両側）",durationSec:30,restSec:20,why:"弱くなった中臀筋を強化"},
+    {name:"ヒップアブダクション",muscle:"中臀筋・小臀筋",sets:3,reps:"15回（両側）",durationSec:30,restSec:20,why:"股関節外転筋を強化"},
+  ],
+  xo_legs: [
+    {name:"タオルグリップ（足指強化）",muscle:"足内在筋",sets:3,reps:"30秒",durationSec:30,restSec:20,why:"足部アーチを支える筋肉を強化"},
+    {name:"カーフレイズ（内外バランス）",muscle:"ふくらはぎ・足部",sets:3,reps:"15回",durationSec:25,restSec:20,why:"足首のバランスを整える"},
+  ],
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { profile, diag, goal, posture } = await req.json()
 
     const diagText = Object.entries(diag).map(([k,v]) => `${k}:${v}`).join('\n')
     const postureText = posture?.join('・') || 'なし'
-
     const today = new Date().getDay()
     const todayIdx = today === 0 ? 6 : today - 1
     const dayNames = ['月','火','水','木','金','土','日']
@@ -63,7 +101,19 @@ ${diagText}
     const text = message.content[0].type === 'text' ? message.content[0].text : ''
     const parsed = JSON.parse(text.replace(/```json|```/g, '').trim())
 
-    return NextResponse.json(parsed)
+    // 姿勢改善メニューを別に追加
+    const postureExercises: any[] = []
+    if (posture && posture.length > 0) {
+      posture.slice(0, 3).forEach((id: string) => {
+        const exs = POSTURE_EXERCISES[id]
+        if (exs) postureExercises.push(...exs)
+      })
+    }
+
+    return NextResponse.json({
+      ...parsed,
+      postureExercises,
+    })
   } catch (e) {
     console.error(e)
     return NextResponse.json({ error: 'Failed' }, { status: 500 })
