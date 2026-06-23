@@ -39,7 +39,7 @@ export default function OnboardingPage() {
         weight: Number(profile.weight),
       })
 
-      router.push('/goal')
+      router.push('/posture')
     } catch (e) {
       console.error(e)
     } finally {

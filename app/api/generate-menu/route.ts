@@ -13,7 +13,7 @@ const supabase = createClient(
 
 export async function POST(req: NextRequest) {
   try {
-    const { profile, diag, goal, posture } = await req.json()
+    const { profile, diag, goal, posture, fitness } = await req.json()
 
     // DBからメニューを全件取得
     const { data: menuDB } = await supabase
@@ -23,6 +23,7 @@ export async function POST(req: NextRequest) {
 
     const diagText = Object.entries(diag).map(([k,v]) => `${k}:${v}`).join('\n')
     const postureText = posture?.join('・') || 'なし'
+    const fitnessText = fitness ? Object.entries(fitness).map(([k,v]: any) => k+':'+v.value+(v.level?.label?'('+v.level.label+')':'')).join('・') : 'なし'
     const today = new Date().getDay()
     const todayIdx = today === 0 ? 6 : today - 1
     const dayNames = ['月','火','水','木','金','土','日']
@@ -60,6 +61,7 @@ export async function POST(req: NextRequest) {
 BMI: ${bmi}（${bmiLabel}）
 目標体型: ${goal}
 姿勢の問題: ${postureText}
+体力テスト結果: ${fitnessText}
 今日: ${dayNames[todayIdx]}曜日
 
 【診断回答】

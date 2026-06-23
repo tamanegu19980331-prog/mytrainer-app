@@ -85,7 +85,7 @@ export default function DiagnosisPage() {
     } else {
       // 診断完了 → localStorageに保存してメニュー生成へ
       localStorage.setItem('mt_diag', JSON.stringify(newAnswers))
-      router.push('/menu')
+      router.push('/goal')
     }
   }
 

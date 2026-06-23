@@ -37,6 +37,7 @@ export default function MenuPage() {
       const diag    = JSON.parse(localStorage.getItem('mt_diag')    || '{}')
       const goal    = localStorage.getItem('mt_goal')    || ''
       const posture = JSON.parse(localStorage.getItem('mt_posture') || '[]')
+      const fitness = JSON.parse(localStorage.getItem('mt_fitness') || '{}')
 
       const { data: profile } = await supabase
         .from('users').select('*').eq('id', user.id).single()
@@ -44,7 +45,7 @@ export default function MenuPage() {
       const res = await fetch('/api/generate-menu', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ profile, diag, goal, posture }),
+        body: JSON.stringify({ profile, diag, goal, posture, fitness }),
       })
 
       const data = await res.json()
