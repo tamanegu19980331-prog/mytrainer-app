@@ -152,16 +152,20 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* メインボタン */}
-        <div style={{margin:'0 16px 16px'}}>
+       {/* メインボタン */}
+       <div style={{margin:'0 16px 16px'}}>
           <button onClick={()=>router.push('/goal')}
             style={{width:'100%',padding:'16px',background:'#39ff14',color:'#000',border:'none',borderRadius:16,fontSize:16,fontWeight:800,cursor:'pointer',marginBottom:10}}>
             今日のメニューを生成する →
           </button>
+          <button onClick={()=>router.push('/ranking')}
+            style={{width:'100%',padding:'13px',background:'transparent',color:'#ffd60a',border:'1px solid #ffd60a',borderRadius:12,fontSize:13,fontWeight:700,cursor:'pointer',marginBottom:10}}>
+            全国ランキングを見る 🏆
+          </button>
           <button onClick={()=>router.push('/body')}
-  style={{width:'100%',padding:'13px',background:'transparent',color:'#00c8ff',border:'1px solid #00c8ff',borderRadius:12,fontSize:13,fontWeight:700,cursor:'pointer',marginBottom:10}}>
-  体重・体組成を記録する
-</button>
+            style={{width:'100%',padding:'13px',background:'transparent',color:'#00c8ff',border:'1px solid #00c8ff',borderRadius:12,fontSize:13,fontWeight:700,cursor:'pointer',marginBottom:10}}>
+            体重・体組成を記録する
+          </button>
           <button onClick={()=>setShowHistory(!showHistory)}
             style={{width:'100%',padding:'13px',background:'transparent',color:'#39ff14',border:'1px solid #39ff14',borderRadius:12,fontSize:13,fontWeight:700,cursor:'pointer'}}>
             {showHistory ? '履歴を閉じる' : `トレーニング履歴を見る（${logs.length}件）`}
