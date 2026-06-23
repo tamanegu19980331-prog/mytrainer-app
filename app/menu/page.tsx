@@ -28,6 +28,7 @@ export default function MenuPage() {
   const [completed, setCompleted] = useState(false)
   const [expGained, setExpGained] = useState(0)
   const [levelUp, setLevelUp] = useState<any>(null)
+  const [newStreak, setNewStreak] = useState(0)
   const router = useRouter()
 
   const steps = [
@@ -70,7 +71,6 @@ export default function MenuPage() {
       setMenu(data)
       setStatus('done')
 
-      // 診断・メニュー履歴をDBに保存
       await supabase.from('diagnosis_logs').insert({
         user_id: user.id, goal, posture, answers: diag,
         user_type: data.userType || '', type_reason: data.typeReason || '',
@@ -103,32 +103,44 @@ export default function MenuPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      // EXP計算
       const baseExp = menu.level === '上級' ? 60 : menu.level === '中級' ? 40 : 25
       const bonusExp = allExercises.length * 5
       const totalExp = baseExp + bonusExp
       setExpGained(totalExp)
 
-      // 現在のEXPを取得
       const { data: profile } = await supabase
-        .from('users').select('exp, level').eq('id', user.id).single()
+        .from('users').select('exp, level, streak, best_streak, last_trained').eq('id', user.id).single()
       const currentExp = profile?.exp || 0
       const newExp = currentExp + totalExp
 
-      // レベルアップ判定
       const oldLv = getLevel(currentExp)
       const newLv = getLevel(newExp)
       if (newLv.lv > oldLv.lv) {
         setLevelUp(newLv)
       }
 
+      // ストリーク計算
+      const today = new Date().toISOString().slice(0, 10)
+      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10)
+      const lastTrained = profile?.last_trained
+      let streak = 1
+      if (lastTrained === yesterday) {
+        streak = (profile?.streak || 0) + 1
+      } else if (lastTrained === today) {
+        streak = profile?.streak || 1
+      }
+      const bestStreak = Math.max(streak, profile?.best_streak || 0)
+      setNewStreak(streak)
+
       // DBに保存
       await supabase.from('users').update({
         exp: newExp,
         level: newLv.lv,
+        streak: streak,
+        best_streak: bestStreak,
+        last_trained: today,
       }).eq('id', user.id)
 
-      // training_logsを完了に更新
       await supabase.from('training_logs')
         .update({ completed: true })
         .eq('user_id', user.id)
@@ -171,7 +183,6 @@ export default function MenuPage() {
   const postureExercises = menu.postureExercises || []
   let exerciseIndex = 0
 
-  // レベルアップ画面
   if (levelUp) return (
     <div style={{background:'#16161a',minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center'}}>
       <div style={{textAlign:'center',padding:'0 20px'}}>
@@ -187,13 +198,17 @@ export default function MenuPage() {
     </div>
   )
 
-  // 完了画面
   if (completed) return (
     <div style={{background:'#16161a',minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center'}}>
       <div style={{textAlign:'center',padding:'0 20px',maxWidth:400}}>
         <div style={{fontSize:64,marginBottom:16}}>💪</div>
         <div style={{fontSize:24,fontWeight:800,color:'#39ff14',marginBottom:8}}>トレーニング完了！</div>
         <div style={{fontSize:16,color:'#ffd60a',fontWeight:800,marginBottom:4}}>+{expGained} EXP獲得！</div>
+        {newStreak > 1 && (
+          <div style={{fontSize:14,color:'#ff8c00',fontWeight:700,marginBottom:4}}>
+            🔥 {newStreak}日連続トレーニング！
+          </div>
+        )}
         <div style={{fontSize:13,color:'#666',marginBottom:32}}>お疲れ様でした！継続することが大切です。</div>
         <button onClick={()=>router.push('/dashboard')}
           style={{width:'100%',padding:'16px',background:'#39ff14',color:'#000',border:'none',borderRadius:16,fontSize:16,fontWeight:800,cursor:'pointer',marginBottom:10}}>
@@ -212,7 +227,6 @@ export default function MenuPage() {
         </div>
 
         <div style={{background:'#1e1e26',borderRadius:16,padding:'20px 16px',border:'1px solid #2a2a36',marginBottom:16}}>
-
           <div style={{fontSize:10,letterSpacing:2,color:'#39ff14',fontWeight:700,marginBottom:4}}>⚡ お任せメニュー</div>
           <div style={{fontSize:18,fontWeight:800,marginBottom:4}}>{menu.theme}</div>
           <span style={{display:'inline-block',background:'rgba(57,255,20,0.1)',border:'1px solid #1a6600',color:'#39ff14',fontSize:10,padding:'2px 8px',borderRadius:20,fontWeight:700,marginBottom:16}}>{menu.level}</span>
@@ -224,7 +238,6 @@ export default function MenuPage() {
             </div>
           )}
 
-          {/* トレーニングメニュー */}
           <div style={{fontSize:10,color:'#39ff14',fontWeight:700,letterSpacing:1,marginBottom:10,display:'flex',alignItems:'center',gap:6}}>
             <div style={{flex:1,height:1,background:'#1a6600'}}/>
             💪 トレーニングメニュー
@@ -256,7 +269,6 @@ export default function MenuPage() {
             )
           })}
 
-          {/* 姿勢改善メニュー */}
           {postureExercises.length>0&&(
             <>
               <div style={{padding:'14px 0 8px',display:'flex',alignItems:'center',gap:8,marginTop:4}}>
@@ -299,7 +311,6 @@ export default function MenuPage() {
           )}
         </div>
 
-        {/* 完了ボタン */}
         <div style={{background:'#1e1e26',borderRadius:16,padding:'16px',border:'1px solid #2a2a36',marginBottom:10,textAlign:'center'}}>
           <div style={{fontSize:12,color:'#666',marginBottom:8}}>
             {allChecked ? '全種目完了！' : `${Object.values(checked).filter(Boolean).length} / ${allExercises.length} 完了`}
