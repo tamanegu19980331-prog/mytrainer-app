@@ -152,8 +152,8 @@ export default function DashboardPage() {
           </div>
         </div>
 
-       {/* メインボタン */}
-       <div style={{margin:'0 16px 16px'}}>
+      {/* メインボタン */}
+      <div style={{margin:'0 16px 16px'}}>
           <button onClick={()=>router.push('/goal')}
             style={{width:'100%',padding:'16px',background:'#39ff14',color:'#000',border:'none',borderRadius:16,fontSize:16,fontWeight:800,cursor:'pointer',marginBottom:10}}>
             今日のメニューを生成する →
@@ -161,6 +161,10 @@ export default function DashboardPage() {
           <button onClick={()=>router.push('/ranking')}
             style={{width:'100%',padding:'13px',background:'transparent',color:'#ffd60a',border:'1px solid #ffd60a',borderRadius:12,fontSize:13,fontWeight:700,cursor:'pointer',marginBottom:10}}>
             全国ランキングを見る 🏆
+          </button>
+          <button onClick={()=>router.push('/food')}
+            style={{width:'100%',padding:'13px',background:'transparent',color:'#ff8c00',border:'1px solid #ff8c00',borderRadius:12,fontSize:13,fontWeight:700,cursor:'pointer',marginBottom:10}}>
+            食事をAI分析する 🍱
           </button>
           <button onClick={()=>router.push('/body')}
             style={{width:'100%',padding:'13px',background:'transparent',color:'#00c8ff',border:'1px solid #00c8ff',borderRadius:12,fontSize:13,fontWeight:700,cursor:'pointer',marginBottom:10}}>
