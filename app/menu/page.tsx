@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
@@ -24,11 +24,17 @@ export default function MenuPage() {
   const [status, setStatus] = useState<'loading'|'done'|'error'>('loading')
   const [menu, setMenu] = useState<any>(null)
   const [step, setStep] = useState(0)
+  const [mode, setMode] = useState<'view'|'training'>('view')
+  const [currentExIdx, setCurrentExIdx] = useState(0)
+  const [currentSet, setCurrentSet] = useState(1)
+  const [phase, setPhase] = useState<'countdown'|'exercise'|'rest'|'done'>('countdown')
+  const [timer, setTimer] = useState(5)
   const [checked, setChecked] = useState<Record<string, boolean>>({})
   const [completed, setCompleted] = useState(false)
   const [expGained, setExpGained] = useState(0)
   const [levelUp, setLevelUp] = useState<any>(null)
   const [newStreak, setNewStreak] = useState(0)
+  const intervalRef = useRef<any>(null)
   const router = useRouter()
 
   const steps = [
@@ -48,29 +54,27 @@ export default function MenuPage() {
     return () => clearInterval(iv)
   }, [status])
 
+  useEffect(() => {
+    return () => clearInterval(intervalRef.current)
+  }, [])
+
   const generateMenu = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/auth'); return }
-
       const diag    = JSON.parse(localStorage.getItem('mt_diag')    || '{}')
       const goal    = localStorage.getItem('mt_goal')    || ''
       const posture = JSON.parse(localStorage.getItem('mt_posture') || '[]')
       const fitness = JSON.parse(localStorage.getItem('mt_fitness') || '{}')
-
-      const { data: profile } = await supabase
-        .from('users').select('*').eq('id', user.id).single()
-
+      const { data: profile } = await supabase.from('users').select('*').eq('id', user.id).single()
       const res = await fetch('/api/generate-menu', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ profile, diag, goal, posture, fitness }),
       })
-
       const data = await res.json()
       setMenu(data)
       setStatus('done')
-
       await supabase.from('diagnosis_logs').insert({
         user_id: user.id, goal, posture, answers: diag,
         user_type: data.userType || '', type_reason: data.typeReason || '',
@@ -86,71 +90,140 @@ export default function MenuPage() {
     }
   }
 
-  const toggleCheck = (key: string) => {
-    setChecked(c => ({ ...c, [key]: !c[key] }))
-  }
-
   const allExercises = [
     ...(menu?.exercises?.filter((ex: any) => !ex.isSeparator) || []),
     ...(menu?.postureExercises || []),
   ]
 
+  const toggleCheck = (key: string) => {
+    setChecked(c => ({ ...c, [key]: !c[key] }))
+  }
+
   const allChecked = allExercises.length > 0 &&
     allExercises.every((_: any, i: number) => checked[i])
+
+  // トレーニングモード開始
+  const startTraining = () => {
+    setMode('training')
+    setCurrentExIdx(0)
+    setCurrentSet(1)
+    setPhase('countdown')
+    setTimer(5)
+    startCountdown(5)
+  }
+
+  const startCountdown = (sec: number) => {
+    clearInterval(intervalRef.current)
+    setTimer(sec)
+    let t = sec
+    intervalRef.current = setInterval(() => {
+      t--
+      setTimer(t)
+      if (t <= 0) {
+        clearInterval(intervalRef.current)
+        setPhase('exercise')
+        startExerciseTimer()
+      }
+    }, 1000)
+  }
+
+  const startExerciseTimer = () => {
+    const ex = allExercises[currentExIdx]
+    if (!ex) return
+    const sec = ex.durationSec || 30
+    setTimer(sec)
+    let t = sec
+    intervalRef.current = setInterval(() => {
+      t--
+      setTimer(t)
+      if (t <= 0) {
+        clearInterval(intervalRef.current)
+        setPhase('rest')
+        startRestTimer()
+      }
+    }, 1000)
+  }
+
+  const startRestTimer = () => {
+    const ex = allExercises[currentExIdx]
+    const restSec = ex?.restSec || 60
+    setTimer(restSec)
+    let t = restSec
+    intervalRef.current = setInterval(() => {
+      t--
+      setTimer(t)
+      if (t <= 0) {
+        clearInterval(intervalRef.current)
+        nextSet()
+      }
+    }, 1000)
+  }
+
+  const nextSet = () => {
+    const ex = allExercises[currentExIdx]
+    const totalSets = ex?.sets || 3
+    if (currentSet < totalSets) {
+      setCurrentSet(s => s + 1)
+      setPhase('exercise')
+      startExerciseTimer()
+    } else {
+      // 次の種目へ
+      const nextIdx = currentExIdx + 1
+      if (nextIdx < allExercises.length) {
+        setCurrentExIdx(nextIdx)
+        setCurrentSet(1)
+        setPhase('countdown')
+        startCountdown(5)
+      } else {
+        setPhase('done')
+        clearInterval(intervalRef.current)
+        // 全種目完了
+        const newChecked: Record<string, boolean> = {}
+        allExercises.forEach((_: any, i: number) => { newChecked[i] = true })
+        setChecked(newChecked)
+      }
+    }
+  }
+
+  const skipRest = () => {
+    clearInterval(intervalRef.current)
+    nextSet()
+  }
 
   const completeTraining = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-
       const baseExp = menu.level === '上級' ? 60 : menu.level === '中級' ? 40 : 25
       const bonusExp = allExercises.length * 5
       const totalExp = baseExp + bonusExp
       setExpGained(totalExp)
-
       const { data: profile } = await supabase
         .from('users').select('exp, level, streak, best_streak, last_trained').eq('id', user.id).single()
       const currentExp = profile?.exp || 0
       const newExp = currentExp + totalExp
-
       const oldLv = getLevel(currentExp)
       const newLv = getLevel(newExp)
-      if (newLv.lv > oldLv.lv) {
-        setLevelUp(newLv)
-      }
-
-      // ストリーク計算
+      if (newLv.lv > oldLv.lv) setLevelUp(newLv)
       const today = new Date().toISOString().slice(0, 10)
       const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10)
       const lastTrained = profile?.last_trained
       let streak = 1
-      if (lastTrained === yesterday) {
-        streak = (profile?.streak || 0) + 1
-      } else if (lastTrained === today) {
-        streak = profile?.streak || 1
-      }
+      if (lastTrained === yesterday) streak = (profile?.streak || 0) + 1
+      else if (lastTrained === today) streak = profile?.streak || 1
       const bestStreak = Math.max(streak, profile?.best_streak || 0)
       setNewStreak(streak)
-
-      // DBに保存
       await supabase.from('users').update({
-        exp: newExp,
-        level: newLv.lv,
-        streak: streak,
-        best_streak: bestStreak,
-        last_trained: today,
+        exp: newExp, level: newLv.lv,
+        streak, best_streak: bestStreak, last_trained: today,
       }).eq('id', user.id)
-
       await supabase.from('training_logs')
         .update({ completed: true })
         .eq('user_id', user.id)
         .eq('menu_name', menu.theme)
         .eq('completed', false)
-
       setCompleted(true)
-    } catch(e) {
-      console.error(e)
-    }
+    } catch(e) { console.error(e) }
   }
 
   if (status === 'loading') return (
@@ -204,20 +277,117 @@ export default function MenuPage() {
         <div style={{fontSize:64,marginBottom:16}}>💪</div>
         <div style={{fontSize:24,fontWeight:800,color:'#39ff14',marginBottom:8}}>トレーニング完了！</div>
         <div style={{fontSize:16,color:'#ffd60a',fontWeight:800,marginBottom:4}}>+{expGained} EXP獲得！</div>
-        {newStreak > 1 && (
-          <div style={{fontSize:14,color:'#ff8c00',fontWeight:700,marginBottom:4}}>
-            🔥 {newStreak}日連続トレーニング！
-          </div>
-        )}
-        <div style={{fontSize:13,color:'#666',marginBottom:32}}>お疲れ様でした！継続することが大切です。</div>
+        {newStreak>1&&<div style={{fontSize:14,color:'#ff8c00',fontWeight:700,marginBottom:4}}>🔥 {newStreak}日連続！</div>}
+        <div style={{fontSize:13,color:'#666',marginBottom:32}}>お疲れ様でした！</div>
         <button onClick={()=>router.push('/dashboard')}
-          style={{width:'100%',padding:'16px',background:'#39ff14',color:'#000',border:'none',borderRadius:16,fontSize:16,fontWeight:800,cursor:'pointer',marginBottom:10}}>
+          style={{width:'100%',padding:'16px',background:'#39ff14',color:'#000',border:'none',borderRadius:16,fontSize:16,fontWeight:800,cursor:'pointer'}}>
           ダッシュボードへ →
         </button>
       </div>
     </div>
   )
 
+  // トレーニングモード
+  if (mode === 'training') {
+    const currentEx = allExercises[currentExIdx]
+
+    if (phase === 'done') return (
+      <div style={{background:'#16161a',minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center'}}>
+        <div style={{textAlign:'center',padding:'0 20px'}}>
+          <div style={{fontSize:64,marginBottom:16}}>🏆</div>
+          <div style={{fontSize:24,fontWeight:800,color:'#39ff14',marginBottom:8}}>全種目完了！</div>
+          <div style={{fontSize:13,color:'#666',marginBottom:24}}>素晴らしい！EXPを獲得しましょう</div>
+          <button onClick={completeTraining}
+            style={{width:'100%',padding:'16px',background:'#39ff14',color:'#000',border:'none',borderRadius:16,fontSize:16,fontWeight:800,cursor:'pointer',marginBottom:10}}>
+            ✅ EXPを獲得する
+          </button>
+          <button onClick={()=>setMode('view')}
+            style={{width:'100%',padding:'13px',background:'transparent',color:'#666',border:'1px solid #2a2a36',borderRadius:12,fontSize:13,cursor:'pointer'}}>
+            メニューに戻る
+          </button>
+        </div>
+      </div>
+    )
+
+    return (
+      <div style={{background:'#16161a',minHeight:'100vh',color:'#e8e8e8'}}>
+        <div style={{maxWidth:480,margin:'0 auto',padding:'20px 16px'}}>
+
+          {/* 進捗バー */}
+          <div style={{marginBottom:16}}>
+            <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'#666',marginBottom:6}}>
+              <span>{currentExIdx+1}/{allExercises.length} 種目</span>
+              <span>{currentSet}/{currentEx?.sets||3} セット</span>
+            </div>
+            <div style={{background:'#2a2a36',borderRadius:8,height:6,overflow:'hidden'}}>
+              <div style={{height:'100%',background:'#39ff14',borderRadius:8,transition:'width 0.3s',
+                width:`${((currentExIdx*3+currentSet-1)/(allExercises.length*3))*100}%`}}/>
+            </div>
+          </div>
+
+          {/* 種目カード */}
+          <div style={{background:'#1e1e26',borderRadius:16,padding:'24px',border:'1px solid #2a2a36',marginBottom:16,textAlign:'center'}}>
+
+            {/* カウントダウン */}
+            {phase==='countdown'&&(
+              <>
+                <div style={{fontSize:13,color:'#666',marginBottom:8}}>次の種目まで</div>
+                <div style={{fontSize:32,fontWeight:800,color:'#39ff14',marginBottom:12}}>{currentEx?.name}</div>
+                <div style={{fontSize:80,fontWeight:800,color:timer<=3?'#ff4455':'#ffd60a',marginBottom:8}}>{timer}</div>
+                <div style={{fontSize:13,color:'#666'}}>秒後にスタート</div>
+              </>
+            )}
+
+            {/* 運動中 */}
+            {phase==='exercise'&&(
+              <>
+                <div style={{fontSize:11,color:'#39ff14',fontWeight:700,marginBottom:8}}>SET {currentSet}/{currentEx?.sets||3}</div>
+                <div style={{fontSize:28,fontWeight:800,marginBottom:8}}>{currentEx?.name}</div>
+                <div style={{fontSize:11,color:'#666',marginBottom:16}}>{currentEx?.muscle}</div>
+                <div style={{fontSize:80,fontWeight:800,color:'#39ff14',marginBottom:8}}>{timer}</div>
+                <div style={{fontSize:13,color:'#666',marginBottom:16}}>秒</div>
+                <div style={{fontSize:18,fontWeight:800,color:'#ffd60a'}}>{currentEx?.reps}</div>
+              </>
+            )}
+
+            {/* 休憩中 */}
+            {phase==='rest'&&(
+              <>
+                <div style={{fontSize:20,marginBottom:8}}>😮‍💨</div>
+                <div style={{fontSize:20,fontWeight:800,color:'#666',marginBottom:16}}>休憩中</div>
+                <div style={{fontSize:80,fontWeight:800,color:'#00c8ff',marginBottom:8}}>{timer}</div>
+                <div style={{fontSize:13,color:'#666',marginBottom:16}}>秒</div>
+                <div style={{fontSize:12,color:'#666',marginBottom:16}}>
+                  次: {currentSet<(currentEx?.sets||3)?`セット${currentSet+1}`:allExercises[currentExIdx+1]?.name||'完了'}
+                </div>
+                <button onClick={skipRest}
+                  style={{padding:'10px 24px',background:'transparent',color:'#39ff14',border:'1px solid #39ff14',borderRadius:10,fontSize:13,fontWeight:700,cursor:'pointer'}}>
+                  スキップ →
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* アドバイス */}
+          {currentEx?.why&&(
+            <div style={{background:'rgba(0,200,255,0.1)',borderRadius:12,padding:'12px 14px',border:'1px solid rgba(0,200,255,0.3)',marginBottom:16}}>
+              <div style={{fontSize:10,color:'#00c8ff',fontWeight:700,marginBottom:3}}>📌 ポイント</div>
+              <div style={{fontSize:12,lineHeight:1.6}}>{currentEx.why}</div>
+            </div>
+          )}
+
+          {/* 中断ボタン */}
+          <button onClick={()=>{clearInterval(intervalRef.current);setMode('view')}}
+            style={{width:'100%',padding:'13px',background:'transparent',color:'#666',border:'1px solid #2a2a36',borderRadius:12,fontSize:13,cursor:'pointer'}}>
+            中断する（EXPなし）
+          </button>
+
+        </div>
+      </div>
+    )
+  }
+
+  // 通常表示モード
   return (
     <div style={{background:'#16161a',minHeight:'100vh',color:'#e8e8e8',display:'flex',justifyContent:'center'}}>
       <div style={{width:'100%',maxWidth:480,padding:'20px 16px'}}>
@@ -238,6 +408,7 @@ export default function MenuPage() {
             </div>
           )}
 
+          {/* トレーニングメニュー */}
           <div style={{fontSize:10,color:'#39ff14',fontWeight:700,letterSpacing:1,marginBottom:10,display:'flex',alignItems:'center',gap:6}}>
             <div style={{flex:1,height:1,background:'#1a6600'}}/>
             💪 トレーニングメニュー
@@ -311,16 +482,23 @@ export default function MenuPage() {
           )}
         </div>
 
-        <div style={{background:'#1e1e26',borderRadius:16,padding:'16px',border:'1px solid #2a2a36',marginBottom:10,textAlign:'center'}}>
-          <div style={{fontSize:12,color:'#666',marginBottom:8}}>
-            {allChecked ? '全種目完了！' : `${Object.values(checked).filter(Boolean).length} / ${allExercises.length} 完了`}
+        {/* トレーニング開始ボタン */}
+        <button onClick={startTraining}
+          style={{width:'100%',padding:'16px',background:'#39ff14',color:'#000',border:'none',borderRadius:16,fontSize:16,fontWeight:800,cursor:'pointer',marginBottom:10}}>
+          ▶ トレーニング開始
+        </button>
+
+        {/* 手動チェック完了 */}
+        <div style={{background:'#1e1e26',borderRadius:16,padding:'14px',border:'1px solid #2a2a36',marginBottom:10,textAlign:'center'}}>
+          <div style={{fontSize:11,color:'#666',marginBottom:6}}>
+            {allChecked?'全種目チェック済み！':`${Object.values(checked).filter(Boolean).length}/${allExercises.length} チェック済み`}
           </div>
-          <div style={{background:'#2a2a36',borderRadius:8,height:6,overflow:'hidden',marginBottom:12}}>
+          <div style={{background:'#2a2a36',borderRadius:8,height:4,overflow:'hidden',marginBottom:10}}>
             <div style={{height:'100%',width:`${allExercises.length>0?(Object.values(checked).filter(Boolean).length/allExercises.length)*100:0}%`,background:'#39ff14',transition:'width 0.3s'}}/>
           </div>
           <button onClick={completeTraining} disabled={!allChecked}
-            style={{width:'100%',padding:'14px',background:allChecked?'#39ff14':'#25252f',color:allChecked?'#000':'#444',border:'none',borderRadius:12,fontSize:14,fontWeight:800,cursor:allChecked?'pointer':'not-allowed',transition:'all 0.3s'}}>
-            {allChecked ? '✅ トレーニング完了！EXP獲得' : '種目をチェックして完了'}
+            style={{width:'100%',padding:'12px',background:allChecked?'#1e1e26':'#25252f',color:allChecked?'#39ff14':'#444',border:'1px solid '+(allChecked?'#39ff14':'#2a2a36'),borderRadius:10,fontSize:13,fontWeight:700,cursor:allChecked?'pointer':'not-allowed'}}>
+            {allChecked?'✅ 手動完了・EXP獲得':'全種目チェックで完了'}
           </button>
         </div>
 
