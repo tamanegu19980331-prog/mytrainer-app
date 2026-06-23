@@ -6,10 +6,11 @@ import { useRouter } from 'next/navigation'
 export default function AdminPage() {
   const [loading, setLoading] = useState(true)
   const [isAdmin, setIsAdmin] = useState(false)
-  const [tab, setTab] = useState('users')
+  const [tab, setTab] = useState('dashboard')
   const [users, setUsers] = useState<any[]>([])
   const [menus, setMenus] = useState<any[]>([])
   const [logs, setLogs] = useState<any[]>([])
+  const [diagLogs, setDiagLogs] = useState<any[]>([])
   const [showForm, setShowForm] = useState(false)
   const [editMenu, setEditMenu] = useState<any>(null)
   const [form, setForm] = useState({
@@ -32,14 +33,16 @@ export default function AdminPage() {
   }
 
   const loadAll = async () => {
-    const [u, m, l] = await Promise.all([
+    const [u, m, l, d] = await Promise.all([
       supabase.from('users').select('*').order('created_at', { ascending: false }),
       supabase.from('menus').select('*').order('created_at', { ascending: false }),
-      supabase.from('training_logs').select('*').order('created_at', { ascending: false }).limit(50),
+      supabase.from('training_logs').select('*').order('created_at', { ascending: false }).limit(100),
+      supabase.from('diagnosis_logs').select('*').order('created_at', { ascending: false }).limit(100),
     ])
     if (u.data) setUsers(u.data)
     if (m.data) setMenus(m.data)
     if (l.data) setLogs(l.data)
+    if (d.data) setDiagLogs(d.data)
   }
 
   const updateUserType = async (userId: string, userType: string) => {
@@ -94,12 +97,40 @@ export default function AdminPage() {
     fontSize:12, outline:'none', marginBottom:8
   }
 
+  // KPI計算
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+  const activeUsers = new Set(logs.filter(l => new Date(l.created_at) > sevenDaysAgo).map(l => l.user_id)).size
+  const totalUsers = users.filter(u => !u.is_admin).length
+  const retentionRate = totalUsers > 0 ? Math.round((activeUsers / totalUsers) * 100) : 0
+
+  // 人気メニューランキング
+  const menuCount: Record<string, number> = {}
+  logs.forEach(l => {
+    if (l.menu_name) menuCount[l.menu_name] = (menuCount[l.menu_name] || 0) + 1
+  })
+  const menuRanking = Object.entries(menuCount).sort((a, b) => b[1] - a[1]).slice(0, 5)
+
+  // ユーザータイプ分布
+  const typeCount: Record<string, number> = {}
+  diagLogs.forEach(d => {
+    if (d.user_type) typeCount[d.user_type] = (typeCount[d.user_type] || 0) + 1
+  })
+  const typeRanking = Object.entries(typeCount).sort((a, b) => b[1] - a[1]).slice(0, 5)
+
+  // 姿勢タイプ分布
+  const postureCount: Record<string, number> = {}
+  diagLogs.forEach(d => {
+    if (d.posture) d.posture.forEach((p: string) => {
+      postureCount[p] = (postureCount[p] || 0) + 1
+    })
+  })
+  const postureRanking = Object.entries(postureCount).sort((a, b) => b[1] - a[1]).slice(0, 5)
+
   if (loading) return (
     <div style={{background:'#16161a',minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center'}}>
       <div style={{color:'#39ff14'}}>Loading...</div>
     </div>
   )
-
   if (!isAdmin) return null
 
   return (
@@ -112,35 +143,97 @@ export default function AdminPage() {
         </div>
       </div>
 
-      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,padding:'16px'}}>
-        <div style={{background:'#1e1e26',borderRadius:12,padding:'14px',textAlign:'center'}}>
-          <div style={{fontSize:24,fontWeight:800,color:'#39ff14'}}>{users.length}</div>
-          <div style={{fontSize:10,color:'#666'}}>ユーザー</div>
-        </div>
-        <div style={{background:'#1e1e26',borderRadius:12,padding:'14px',textAlign:'center'}}>
-          <div style={{fontSize:24,fontWeight:800,color:'#00c8ff'}}>{menus.length}</div>
-          <div style={{fontSize:10,color:'#666'}}>メニュー</div>
-        </div>
-        <div style={{background:'#1e1e26',borderRadius:12,padding:'14px',textAlign:'center'}}>
-          <div style={{fontSize:24,fontWeight:800,color:'#ffd60a'}}>{logs.length}</div>
-          <div style={{fontSize:10,color:'#666'}}>履歴</div>
-        </div>
-      </div>
-
-      <div style={{display:'flex',gap:6,padding:'0 16px 14px'}}>
-        {[['users','ユーザー'],['menus','メニュー'],['logs','履歴']].map(([k,l])=>(
-          <button key={k} onClick={()=>setTab(k)} style={{flex:1,padding:'9px',background:tab===k?'#39ff14':'#1e1e26',color:tab===k?'#000':'#666',border:'1px solid '+(tab===k?'#39ff14':'#2a2a36'),borderRadius:10,fontSize:11,fontWeight:700,cursor:'pointer'}}>{l}</button>
+      <div style={{display:'flex',gap:6,padding:'14px 16px 0',overflowX:'auto'}}>
+        {[['dashboard','ダッシュボード'],['users','ユーザー'],['menus','メニュー'],['logs','履歴']].map(([k,l])=>(
+          <button key={k} onClick={()=>setTab(k)} style={{flexShrink:0,padding:'9px 14px',background:tab===k?'#39ff14':'#1e1e26',color:tab===k?'#000':'#666',border:'1px solid '+(tab===k?'#39ff14':'#2a2a36'),borderRadius:10,fontSize:11,fontWeight:700,cursor:'pointer'}}>{l}</button>
         ))}
       </div>
 
-      <div style={{padding:'0 16px 40px'}}>
+      <div style={{padding:'14px 16px 40px'}}>
 
+        {/* ダッシュボードタブ */}
+        {tab==='dashboard'&&(
+          <div>
+            {/* KPIカード */}
+            <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:10,marginBottom:16}}>
+              <div style={{background:'#1e1e26',borderRadius:12,padding:'14px',border:'1px solid #2a2a36'}}>
+                <div style={{fontSize:10,color:'#666',marginBottom:4}}>総ユーザー数</div>
+                <div style={{fontSize:28,fontWeight:800,color:'#39ff14'}}>{totalUsers}</div>
+              </div>
+              <div style={{background:'#1e1e26',borderRadius:12,padding:'14px',border:'1px solid #2a2a36'}}>
+                <div style={{fontSize:10,color:'#666',marginBottom:4}}>7日間アクティブ</div>
+                <div style={{fontSize:28,fontWeight:800,color:'#00c8ff'}}>{activeUsers}</div>
+              </div>
+              <div style={{background:'#1e1e26',borderRadius:12,padding:'14px',border:'1px solid #2a2a36'}}>
+                <div style={{fontSize:10,color:'#666',marginBottom:4}}>継続率（7日）</div>
+                <div style={{fontSize:28,fontWeight:800,color:retentionRate>=50?'#39ff14':'#ff4455'}}>{retentionRate}%</div>
+              </div>
+              <div style={{background:'#1e1e26',borderRadius:12,padding:'14px',border:'1px solid #2a2a36'}}>
+                <div style={{fontSize:10,color:'#666',marginBottom:4}}>メニュー数</div>
+                <div style={{fontSize:28,fontWeight:800,color:'#ffd60a'}}>{menus.length}</div>
+              </div>
+            </div>
+
+            {/* 人気メニューランキング */}
+            <div style={{background:'#1e1e26',borderRadius:12,padding:'16px',border:'1px solid #2a2a36',marginBottom:14}}>
+              <div style={{fontSize:10,color:'#39ff14',fontWeight:700,letterSpacing:1,marginBottom:12}}>人気メニューランキング</div>
+              {menuRanking.length===0&&<div style={{color:'#444',fontSize:12}}>まだデータがありません</div>}
+              {menuRanking.map(([name,count],i)=>(
+                <div key={name} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 0',borderBottom:'1px solid #2a2a36'}}>
+                  <div style={{fontSize:16,fontWeight:800,color:i===0?'#ffd60a':i===1?'#aaa':i===2?'#cd7f32':'#666',minWidth:24}}>{i+1}</div>
+                  <div style={{flex:1,fontSize:12}}>{name}</div>
+                  <div style={{fontSize:12,fontWeight:700,color:'#39ff14'}}>{count}回</div>
+                </div>
+              ))}
+            </div>
+
+            {/* ユーザータイプ分布 */}
+            <div style={{background:'#1e1e26',borderRadius:12,padding:'16px',border:'1px solid #2a2a36',marginBottom:14}}>
+              <div style={{fontSize:10,color:'#ffd60a',fontWeight:700,letterSpacing:1,marginBottom:12}}>ユーザータイプ分布</div>
+              {typeRanking.length===0&&<div style={{color:'#444',fontSize:12}}>まだデータがありません</div>}
+              {typeRanking.map(([type,count])=>(
+                <div key={type} style={{marginBottom:8}}>
+                  <div style={{display:'flex',justifyContent:'space-between',fontSize:11,marginBottom:4}}>
+                    <span>{type}</span>
+                    <span style={{color:'#ffd60a',fontWeight:700}}>{count}人</span>
+                  </div>
+                  <div style={{background:'#2a2a36',borderRadius:4,height:6,overflow:'hidden'}}>
+                    <div style={{height:'100%',width:`${Math.min((count/Math.max(...Object.values(typeCount)))*100,100)}%`,background:'#ffd60a',borderRadius:4}}/>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* 姿勢タイプ分布 */}
+            <div style={{background:'#1e1e26',borderRadius:12,padding:'16px',border:'1px solid #2a2a36'}}>
+              <div style={{fontSize:10,color:'#cc44ff',fontWeight:700,letterSpacing:1,marginBottom:12}}>姿勢タイプ分布</div>
+              {postureRanking.length===0&&<div style={{color:'#444',fontSize:12}}>まだデータがありません</div>}
+              {postureRanking.map(([posture,count])=>(
+                <div key={posture} style={{marginBottom:8}}>
+                  <div style={{display:'flex',justifyContent:'space-between',fontSize:11,marginBottom:4}}>
+                    <span>{posture}</span>
+                    <span style={{color:'#cc44ff',fontWeight:700}}>{count}人</span>
+                  </div>
+                  <div style={{background:'#2a2a36',borderRadius:4,height:6,overflow:'hidden'}}>
+                    <div style={{height:'100%',width:`${Math.min((count/Math.max(...Object.values(postureCount)))*100,100)}%`,background:'#cc44ff',borderRadius:4}}/>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ユーザータブ */}
         {tab==='users'&&(
           <div>
+            <div style={{fontSize:11,color:'#666',marginBottom:12}}>登録ユーザー一覧（{users.length}名）</div>
             {users.map(u=>(
               <div key={u.id} style={{background:'#1e1e26',borderRadius:12,padding:'14px',border:'1px solid #2a2a36',marginBottom:10}}>
                 <div onClick={()=>router.push('/admin/user/'+u.id)} style={{cursor:'pointer',marginBottom:8}}>
-                  <div style={{fontSize:14,fontWeight:800,color:'#00c8ff',textDecoration:'underline',marginBottom:4}}>{u.name||'未設定'} →</div>
+                  <div style={{fontSize:14,fontWeight:800,color:'#00c8ff',textDecoration:'underline',marginBottom:4}}>
+                    {u.name||'未設定'} →
+                    {u.is_admin&&<span style={{marginLeft:6,fontSize:9,background:'#ff4455',color:'#fff',padding:'2px 6px',borderRadius:4}}>ADMIN</span>}
+                  </div>
                   <div style={{fontSize:11,color:'#666'}}>{u.email}</div>
                   <div style={{fontSize:11,color:'#666'}}>{u.gender} / {u.height}cm / {u.weight}kg</div>
                 </div>
@@ -156,27 +249,17 @@ export default function AdminPage() {
           </div>
         )}
 
+        {/* メニュータブ */}
         {tab==='menus'&&(
           <div>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
               <div style={{fontSize:11,color:'#666'}}>メニュー一覧（{menus.length}件）</div>
               <button onClick={()=>{setEditMenu(null);setForm({name:'',description:'',category:'',target_gender:'',target_age:'',target_bmi:'',target_goal:'',difficulty:'',tags:'',exercises:''});setShowForm(true)}} style={{padding:'8px 14px',background:'#39ff14',color:'#000',border:'none',borderRadius:8,fontSize:11,fontWeight:800,cursor:'pointer'}}>+ 新規追加</button>
             </div>
-
             {showForm&&(
               <div style={{background:'#1e1e26',borderRadius:12,padding:'16px',border:'1px solid #39ff14',marginBottom:16}}>
                 <div style={{fontSize:12,fontWeight:800,color:'#39ff14',marginBottom:12}}>{editMenu?'編集':'新規追加'}</div>
-                {[
-                  ['name','メニュー名'],
-                  ['description','説明'],
-                  ['category','カテゴリ（上半身/下半身/体幹/有酸素/全身/姿勢改善）'],
-                  ['target_gender','対象性別（男性/女性/両方）'],
-                  ['target_age','対象年齢（20代/30代/40代以上/シニア/全年齢）'],
-                  ['target_bmi','対象BMI（標準/過体重/低体重/全体）'],
-                  ['target_goal','目標（筋肥大/脂肪燃焼/ヒップアップ/健康維持/姿勢改善）'],
-                  ['difficulty','難易度（初級/中級/上級）'],
-                  ['tags','タグ（カンマ区切り）'],
-                ].map(([k,l])=>(
+                {[['name','メニュー名'],['description','説明'],['category','カテゴリ（上半身/下半身/体幹/有酸素/全身/姿勢改善）'],['target_gender','対象性別（男性/女性/両方）'],['target_age','対象年齢（20代/30代/40代以上/シニア/全年齢）'],['target_bmi','対象BMI（標準/過体重/低体重/全体）'],['target_goal','目標（筋肥大/脂肪燃焼/ヒップアップ/健康維持/姿勢改善）'],['difficulty','難易度（初級/中級/上級）'],['tags','タグ（カンマ区切り）']].map(([k,l])=>(
                   <div key={k}>
                     <div style={{fontSize:10,color:'#666',marginBottom:3}}>{l}</div>
                     <input style={inp} value={(form as any)[k]} onChange={e=>setForm(f=>({...f,[k]:e.target.value}))}/>
@@ -190,7 +273,6 @@ export default function AdminPage() {
                 </div>
               </div>
             )}
-
             {menus.map(m=>(
               <div key={m.id} style={{background:'#1e1e26',borderRadius:12,padding:'14px',border:'1px solid #2a2a36',marginBottom:10}}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
@@ -204,13 +286,7 @@ export default function AdminPage() {
                   </div>
                 </div>
                 <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                  {[
-                    {l:m.category,c:'#39ff14'},
-                    {l:m.target_gender,c:'#00c8ff'},
-                    {l:m.target_age,c:'#ffd60a'},
-                    {l:m.difficulty,c:'#ff8c00'},
-                    {l:m.target_goal,c:'#cc44ff'},
-                  ].filter(x=>x.l).map((x,i)=>(
+                  {[{l:m.category,c:'#39ff14'},{l:m.target_gender,c:'#00c8ff'},{l:m.target_age,c:'#ffd60a'},{l:m.difficulty,c:'#ff8c00'},{l:m.target_goal,c:'#cc44ff'}].filter(x=>x.l).map((x,i)=>(
                     <span key={i} style={{fontSize:10,background:x.c+'20',border:'1px solid '+x.c+'44',color:x.c,borderRadius:6,padding:'2px 8px'}}>{x.l}</span>
                   ))}
                 </div>
@@ -220,8 +296,10 @@ export default function AdminPage() {
           </div>
         )}
 
+        {/* 履歴タブ */}
         {tab==='logs'&&(
           <div>
+            <div style={{fontSize:11,color:'#666',marginBottom:12}}>トレーニング履歴（{logs.length}件）</div>
             {logs.length===0&&<div style={{textAlign:'center',padding:'40px 0',color:'#444'}}>まだ履歴がありません</div>}
             {logs.map(l=>(
               <div key={l.id} style={{background:'#1e1e26',borderRadius:12,padding:'12px 14px',border:'1px solid #2a2a36',marginBottom:8}}>
