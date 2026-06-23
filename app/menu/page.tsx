@@ -48,7 +48,27 @@ export default function MenuPage() {
       })
 
       const data = await res.json()
+      console.log('API response:', data)
       setMenu(data)
+      console.log('saving to DB, user:', user.id)
+      // 診断回答をDBに保存
+      await supabase.from('diagnosis_logs').insert({
+        user_id: user.id,
+        goal,
+        posture,
+        answers: diag,
+        user_type: data.userType || '',
+        type_reason: data.typeReason || '',
+      })
+      // メニュー履歴をDBに保存
+      await supabase.from('training_logs').insert({
+        user_id: user.id,
+        menu_id: data.menuId || null,
+        menu_name: data.theme,
+        menu_data: data,
+        user_type: data.userType || '',
+        completed: false,
+      })
       setStatus('done')
     } catch (e) {
       console.error(e)
