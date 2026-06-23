@@ -162,6 +162,10 @@ export default function DashboardPage() {
             style={{width:'100%',padding:'13px',background:'transparent',color:'#ffd60a',border:'1px solid #ffd60a',borderRadius:12,fontSize:13,fontWeight:700,cursor:'pointer',marginBottom:10}}>
             全国ランキングを見る 🏆
           </button>
+          <button onClick={()=>router.push('/progress')}
+            style={{width:'100%',padding:'13px',background:'transparent',color:'#ffd60a',border:'1px solid #ffd60a',borderRadius:12,fontSize:13,fontWeight:700,cursor:'pointer',marginBottom:10}}>
+            📈 成長記録を見る
+          </button>
           <button onClick={()=>router.push('/food')}
             style={{width:'100%',padding:'13px',background:'transparent',color:'#ff8c00',border:'1px solid #ff8c00',borderRadius:12,fontSize:13,fontWeight:700,cursor:'pointer',marginBottom:10}}>
             食事をAI分析する 🍱
