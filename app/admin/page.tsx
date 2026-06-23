@@ -6,9 +6,9 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true)
   const [isAdmin, setIsAdmin] = useState(false)
   const [tab, setTab] = useState('users')
-  const [users, setUsers] = useState([])
-  const [menus, setMenus] = useState([])
-  const [logs, setLogs] = useState([])
+  const [users, setUsers] = useState<any[]>([])
+  const [menus, setMenus] = useState<any[]>([])
+  const [logs, setLogs] = useState<any[]>([])
   const router = useRouter()
   useEffect(() => { init() }, [])
   const init = async () => {
@@ -30,7 +30,7 @@ export default function AdminPage() {
     if (m.data) setMenus(m.data)
     if (l.data) setLogs(l.data)
   }
-  const updateUserType = async (userId, userType) => {
+  const updateUserType = async (userId: string, userType: string) => {
     await supabase.from('users').update({ user_type: userType }).eq('id', userId)
     await loadAll()
   }
