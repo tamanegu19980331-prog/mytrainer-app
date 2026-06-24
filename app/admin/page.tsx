@@ -115,8 +115,8 @@ export default function AdminPage() {
 
   // ユーザータイプ分布
   const typeCount: Record<string, number> = {}
-  diagLogs.forEach(d => {
-    if (d.user_type) typeCount[d.user_type] = (typeCount[d.user_type] || 0) + 1
+  users.filter(u => !u.is_admin && u.user_type).forEach(u => {
+    typeCount[u.user_type] = (typeCount[u.user_type] || 0) + 1
   })
   const typeRanking = Object.entries(typeCount).sort((a, b) => b[1] - a[1]).slice(0, 5)
 

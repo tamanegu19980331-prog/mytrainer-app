@@ -20,6 +20,39 @@ function getLevel(exp: number) {
   return cur
 }
 
+const NO_TUT_KEYWORDS = ['プランク','キープ','ホールド','ストレッチ','ドローイン','ウォールシット','ジャンプ','ステップ','ハイニー','クラムシェル','レッグレイズ','バードドッグ','キャット','ウォーク','ジョグ','マーチ','タオル','チン']
+
+const shouldShowTut = (name: string) => !NO_TUT_KEYWORDS.some(k => name.includes(k))
+
+const isBothSidesReps = (reps: string) =>
+  reps?.includes('両側') || reps?.includes('両手') || reps?.includes('左右')
+
+function calcTutSec(ex: any, tutTempo: string): number {
+    const repsText = ex.reps || ''
+    const bothSides = isBothSidesReps(repsText)
+  
+    // ① 秒指定の種目（TUT不要）両側は2倍
+    if (repsText.includes('秒')) {
+      const base = ex.durationSec || 30
+      return bothSides ? base * 2 : base
+    }
+  
+    // ② 回数指定でTUT必要な種目
+    const repsNum = parseInt(repsText) || 0
+    if (shouldShowTut(ex.name) && tutTempo && repsNum > 0) {
+      const nums = tutTempo.match(/\d+/g)?.map(Number) || []
+      const secPerRep = nums.reduce((a, b) => a + b, 0)
+      if (secPerRep > 0) {
+        const multiplier = bothSides ? 2 : 1
+        return Math.max(secPerRep * repsNum * multiplier, ex.durationSec || 30)
+      }
+    }
+  
+    // ③ TUT不要・回数指定（バードドッグ等）両側は2倍
+    const base = ex.durationSec || 30
+    return bothSides ? base * 2 : base
+  }
+
 export default function MenuPage() {
   const [status, setStatus] = useState<'loading'|'done'|'error'>('loading')
   const [menu, setMenu] = useState<any>(null)
@@ -35,6 +68,8 @@ export default function MenuPage() {
   const [levelUp, setLevelUp] = useState<any>(null)
   const [newStreak, setNewStreak] = useState(0)
   const intervalRef = useRef<any>(null)
+  const menuRef = useRef<any>(null)
+  const exercisesRef = useRef<any[]>([])
   const router = useRouter()
 
   const steps = [
@@ -73,6 +108,7 @@ export default function MenuPage() {
         body: JSON.stringify({ profile, diag, goal, posture, fitness }),
       })
       const data = await res.json()
+      menuRef.current = data
       setMenu(data)
       setStatus('done')
       await supabase.from('diagnosis_logs').insert({
@@ -90,10 +126,12 @@ export default function MenuPage() {
     }
   }
 
-  const allExercises = [
-    ...(menu?.exercises?.filter((ex: any) => !ex.isSeparator) || []),
-    ...(menu?.postureExercises || []),
+  const getAllExercises = (m: any) => [
+    ...(m?.exercises?.filter((ex: any) => !ex.isSeparator) || []),
+    ...(m?.postureExercises || []),
   ]
+
+  const allExercises = getAllExercises(menu)
 
   const toggleCheck = (key: string) => {
     setChecked(c => ({ ...c, [key]: !c[key] }))
@@ -102,17 +140,19 @@ export default function MenuPage() {
   const allChecked = allExercises.length > 0 &&
     allExercises.every((_: any, i: number) => checked[i])
 
-  // トレーニングモード開始
   const startTraining = () => {
+    const exercises = getAllExercises(menuRef.current)
+    exercisesRef.current = exercises
+    const firstUnchecked = exercises.findIndex((_: any, i: number) => !checked[i])
+    const startIdx = firstUnchecked >= 0 ? firstUnchecked : 0
     setMode('training')
-    setCurrentExIdx(0)
+    setCurrentExIdx(startIdx)
     setCurrentSet(1)
     setPhase('countdown')
-    setTimer(5)
-    startCountdown(5)
+    startCountdown(5, startIdx)
   }
 
-  const startCountdown = (sec: number) => {
+  const startCountdown = (sec: number, exIdx: number) => {
     clearInterval(intervalRef.current)
     setTimer(sec)
     let t = sec
@@ -122,15 +162,16 @@ export default function MenuPage() {
       if (t <= 0) {
         clearInterval(intervalRef.current)
         setPhase('exercise')
-        startExerciseTimer()
+        startExerciseTimer(exIdx)
       }
     }, 1000)
   }
 
-  const startExerciseTimer = () => {
-    const ex = allExercises[currentExIdx]
+  const startExerciseTimer = (exIdx: number) => {
+    const ex = exercisesRef.current[exIdx]
     if (!ex) return
-    const sec = ex.durationSec || 30
+    const tutTempo = menuRef.current?.tutTempo || ''
+    const sec = calcTutSec(ex, tutTempo)
     setTimer(sec)
     let t = sec
     intervalRef.current = setInterval(() => {
@@ -139,13 +180,13 @@ export default function MenuPage() {
       if (t <= 0) {
         clearInterval(intervalRef.current)
         setPhase('rest')
-        startRestTimer()
+        startRestTimer(exIdx)
       }
     }, 1000)
   }
 
-  const startRestTimer = () => {
-    const ex = allExercises[currentExIdx]
+  const startRestTimer = (exIdx: number) => {
+    const ex = exercisesRef.current[exIdx]
     const restSec = ex?.restSec || 60
     setTimer(restSec)
     let t = restSec
@@ -154,48 +195,52 @@ export default function MenuPage() {
       setTimer(t)
       if (t <= 0) {
         clearInterval(intervalRef.current)
-        nextSet()
+        nextSet(exIdx)
       }
     }, 1000)
   }
 
-  const nextSet = () => {
-    const ex = allExercises[currentExIdx]
+  const nextSet = (exIdx: number) => {
+    const ex = exercisesRef.current[exIdx]
     const totalSets = ex?.sets || 3
-    if (currentSet < totalSets) {
-      setCurrentSet(s => s + 1)
-      setPhase('exercise')
-      startExerciseTimer()
-    } else {
-      // 次の種目へ
-      const nextIdx = currentExIdx + 1
-      if (nextIdx < allExercises.length) {
-        setCurrentExIdx(nextIdx)
-        setCurrentSet(1)
-        setPhase('countdown')
-        startCountdown(5)
+    setCurrentSet(s => {
+      const next = s + 1
+      if (next <= totalSets) {
+        setPhase('exercise')
+        startExerciseTimer(exIdx)
+        return next
       } else {
-        setPhase('done')
-        clearInterval(intervalRef.current)
-        // 全種目完了
-        const newChecked: Record<string, boolean> = {}
-        allExercises.forEach((_: any, i: number) => { newChecked[i] = true })
-        setChecked(newChecked)
+        const nextIdx = exIdx + 1
+        if (nextIdx < exercisesRef.current.length) {
+          setCurrentExIdx(nextIdx)
+          setPhase('countdown')
+          startCountdown(5, nextIdx)
+          return 1
+        } else {
+          setPhase('done')
+          clearInterval(intervalRef.current)
+          const newChecked: Record<string, boolean> = {}
+          exercisesRef.current.forEach((_: any, i: number) => { newChecked[i] = true })
+          setChecked(newChecked)
+          return s
+        }
       }
-    }
+    })
   }
 
   const skipRest = () => {
     clearInterval(intervalRef.current)
-    nextSet()
+    nextSet(currentExIdx)
   }
 
   const completeTraining = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      const baseExp = menu.level === '上級' ? 60 : menu.level === '中級' ? 40 : 25
-      const bonusExp = allExercises.length * 5
+      const exercises = getAllExercises(menuRef.current)
+      const m = menuRef.current
+      const baseExp = m.level === '上級' ? 60 : m.level === '中級' ? 40 : 25
+      const bonusExp = exercises.length * 5
       const totalExp = baseExp + bonusExp
       setExpGained(totalExp)
       const { data: profile } = await supabase
@@ -220,8 +265,20 @@ export default function MenuPage() {
       await supabase.from('training_logs')
         .update({ completed: true })
         .eq('user_id', user.id)
-        .eq('menu_name', menu.theme)
+        .eq('menu_name', m.theme)
         .eq('completed', false)
+      const exerciseData = exercises.map((ex: any) => ({
+        user_id: user.id,
+        menu_name: m.theme,
+        exercise_name: ex.name,
+        sets: ex.sets || 3,
+        reps: ex.reps || '',
+        duration_sec: ex.durationSec || 0,
+        completed: true,
+      }))
+      if (exerciseData.length > 0) {
+        await supabase.from('exercise_logs').insert(exerciseData)
+      }
       setCompleted(true)
     } catch(e) { console.error(e) }
   }
@@ -290,6 +347,9 @@ export default function MenuPage() {
   // トレーニングモード
   if (mode === 'training') {
     const currentEx = allExercises[currentExIdx]
+    const currentTutSec = currentEx ? calcTutSec(currentEx, menu?.tutTempo || '') : 30
+    const currentBothSides = isBothSidesReps(currentEx?.reps || '')
+    const currentShowTut = shouldShowTut(currentEx?.name || '')
 
     if (phase === 'done') return (
       <div style={{background:'#16161a',minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center'}}>
@@ -312,8 +372,6 @@ export default function MenuPage() {
     return (
       <div style={{background:'#16161a',minHeight:'100vh',color:'#e8e8e8'}}>
         <div style={{maxWidth:480,margin:'0 auto',padding:'20px 16px'}}>
-
-          {/* 進捗バー */}
           <div style={{marginBottom:16}}>
             <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'#666',marginBottom:6}}>
               <span>{currentExIdx+1}/{allExercises.length} 種目</span>
@@ -325,37 +383,47 @@ export default function MenuPage() {
             </div>
           </div>
 
-          {/* 種目カード */}
           <div style={{background:'#1e1e26',borderRadius:16,padding:'24px',border:'1px solid #2a2a36',marginBottom:16,textAlign:'center'}}>
-
-            {/* カウントダウン */}
             {phase==='countdown'&&(
               <>
                 <div style={{fontSize:13,color:'#666',marginBottom:8}}>次の種目まで</div>
-                <div style={{fontSize:32,fontWeight:800,color:'#39ff14',marginBottom:12}}>{currentEx?.name}</div>
+                <div style={{fontSize:28,fontWeight:800,color:'#39ff14',marginBottom:4}}>{currentEx?.name}</div>
+                <div style={{fontSize:13,color:'#ffd60a',marginBottom:4}}>{currentEx?.reps}</div>
+                {currentShowTut&&menu.tutTempo&&(
+                  <div style={{fontSize:11,color:'#ffd60a',marginBottom:4}}>⏱ {menu.tutTempo}</div>
+                )}
+                {currentBothSides&&(
+                  <div style={{padding:'6px 12px',background:'rgba(255,215,10,0.1)',border:'1px solid rgba(255,215,10,0.3)',borderRadius:8,marginBottom:12,fontSize:11,color:'#ffd60a'}}>
+                    右{Math.round(currentTutSec/2)}秒 → 左{Math.round(currentTutSec/2)}秒
+                  </div>
+                )}
                 <div style={{fontSize:80,fontWeight:800,color:timer<=3?'#ff4455':'#ffd60a',marginBottom:8}}>{timer}</div>
                 <div style={{fontSize:13,color:'#666'}}>秒後にスタート</div>
               </>
             )}
-
-            {/* 運動中 */}
             {phase==='exercise'&&(
               <>
                 <div style={{fontSize:11,color:'#39ff14',fontWeight:700,marginBottom:8}}>SET {currentSet}/{currentEx?.sets||3}</div>
-                <div style={{fontSize:28,fontWeight:800,marginBottom:8}}>{currentEx?.name}</div>
-                <div style={{fontSize:11,color:'#666',marginBottom:16}}>{currentEx?.muscle}</div>
-                <div style={{fontSize:80,fontWeight:800,color:'#39ff14',marginBottom:8}}>{timer}</div>
-                <div style={{fontSize:13,color:'#666',marginBottom:16}}>秒</div>
-                <div style={{fontSize:18,fontWeight:800,color:'#ffd60a'}}>{currentEx?.reps}</div>
+                <div style={{fontSize:24,fontWeight:800,marginBottom:4}}>{currentEx?.name}</div>
+                <div style={{fontSize:14,color:'#ffd60a',fontWeight:700,marginBottom:4}}>{currentEx?.reps}</div>
+                {currentShowTut&&menu.tutTempo&&(
+                  <div style={{fontSize:11,color:'#ffd60a',marginBottom:4}}>⏱ {menu.tutTempo}</div>
+                )}
+                {currentBothSides&&(
+                  <div style={{padding:'6px 12px',background:'rgba(255,215,10,0.1)',border:'1px solid rgba(255,215,10,0.3)',borderRadius:8,marginBottom:8,fontSize:11,color:'#ffd60a'}}>
+                    右{Math.round(currentTutSec/2)}秒 → 左{Math.round(currentTutSec/2)}秒
+                  </div>
+                )}
+                <div style={{fontSize:11,color:'#666',marginBottom:12}}>{currentEx?.muscle}</div>
+                <div style={{fontSize:80,fontWeight:800,color:timer<=10?'#ff4455':'#39ff14',marginBottom:8,fontVariantNumeric:'tabular-nums'}}>{timer}</div>
+                <div style={{fontSize:13,color:'#666'}}>秒</div>
               </>
             )}
-
-            {/* 休憩中 */}
             {phase==='rest'&&(
               <>
                 <div style={{fontSize:20,marginBottom:8}}>😮‍💨</div>
                 <div style={{fontSize:20,fontWeight:800,color:'#666',marginBottom:16}}>休憩中</div>
-                <div style={{fontSize:80,fontWeight:800,color:'#00c8ff',marginBottom:8}}>{timer}</div>
+                <div style={{fontSize:80,fontWeight:800,color:'#00c8ff',marginBottom:8,fontVariantNumeric:'tabular-nums'}}>{timer}</div>
                 <div style={{fontSize:13,color:'#666',marginBottom:16}}>秒</div>
                 <div style={{fontSize:12,color:'#666',marginBottom:16}}>
                   次: {currentSet<(currentEx?.sets||3)?`セット${currentSet+1}`:allExercises[currentExIdx+1]?.name||'完了'}
@@ -368,7 +436,6 @@ export default function MenuPage() {
             )}
           </div>
 
-          {/* アドバイス */}
           {currentEx?.why&&(
             <div style={{background:'rgba(0,200,255,0.1)',borderRadius:12,padding:'12px 14px',border:'1px solid rgba(0,200,255,0.3)',marginBottom:16}}>
               <div style={{fontSize:10,color:'#00c8ff',fontWeight:700,marginBottom:3}}>📌 ポイント</div>
@@ -376,12 +443,10 @@ export default function MenuPage() {
             </div>
           )}
 
-          {/* 中断ボタン */}
           <button onClick={()=>{clearInterval(intervalRef.current);setMode('view')}}
             style={{width:'100%',padding:'13px',background:'transparent',color:'#666',border:'1px solid #2a2a36',borderRadius:12,fontSize:13,cursor:'pointer'}}>
             中断する（EXPなし）
           </button>
-
         </div>
       </div>
     )
@@ -399,7 +464,10 @@ export default function MenuPage() {
         <div style={{background:'#1e1e26',borderRadius:16,padding:'20px 16px',border:'1px solid #2a2a36',marginBottom:16}}>
           <div style={{fontSize:10,letterSpacing:2,color:'#39ff14',fontWeight:700,marginBottom:4}}>⚡ お任せメニュー</div>
           <div style={{fontSize:18,fontWeight:800,marginBottom:4}}>{menu.theme}</div>
-          <span style={{display:'inline-block',background:'rgba(57,255,20,0.1)',border:'1px solid #1a6600',color:'#39ff14',fontSize:10,padding:'2px 8px',borderRadius:20,fontWeight:700,marginBottom:16}}>{menu.level}</span>
+          <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:16,flexWrap:'wrap'}}>
+            <span style={{display:'inline-block',background:'rgba(57,255,20,0.1)',border:'1px solid #1a6600',color:'#39ff14',fontSize:10,padding:'2px 8px',borderRadius:20,fontWeight:700}}>{menu.level}</span>
+            {menu.tutGoal&&<span style={{display:'inline-block',background:'rgba(255,215,10,0.1)',border:'1px solid rgba(255,215,10,0.3)',color:'#ffd60a',fontSize:10,padding:'2px 8px',borderRadius:20,fontWeight:700}}>目標: {menu.tutGoal}</span>}
+          </div>
 
           {menu.whyThisMenu&&(
             <div style={{padding:'10px 12px',background:'rgba(204,68,255,0.1)',border:'1px solid rgba(204,68,255,0.4)',borderRadius:10,marginBottom:14}}>
@@ -408,7 +476,6 @@ export default function MenuPage() {
             </div>
           )}
 
-          {/* トレーニングメニュー */}
           <div style={{fontSize:10,color:'#39ff14',fontWeight:700,letterSpacing:1,marginBottom:10,display:'flex',alignItems:'center',gap:6}}>
             <div style={{flex:1,height:1,background:'#1a6600'}}/>
             💪 トレーニングメニュー
@@ -417,6 +484,9 @@ export default function MenuPage() {
 
           {normalExercises.map((ex: any, i: number) => {
             const idx = exerciseIndex++
+            const tutSec = calcTutSec(ex, menu?.tutTempo || '')
+            const exBothSides = isBothSidesReps(ex.reps || '')
+            const exShowTut = shouldShowTut(ex.name)
             return (
               <div key={i} onClick={()=>toggleCheck(String(idx))}
                 style={{padding:'10px 0',borderBottom:'1px solid #2a2a36',cursor:'pointer',opacity:checked[idx]?0.6:1}}>
@@ -429,11 +499,26 @@ export default function MenuPage() {
                       <div style={{fontWeight:700,fontSize:13,textDecoration:checked[idx]?'line-through':'none'}}>{i+1}. {ex.name}</div>
                       <div style={{fontSize:11,color:'#666',marginTop:2}}>{ex.muscle} · 休憩{ex.restSec}秒</div>
                       <div style={{fontSize:11,color:'#00c8ff',marginTop:3}}>📌 {ex.why}</div>
+                      {exShowTut&&menu.tutTempo&&(
+                        <div style={{fontSize:10,color:'#ffd60a',marginTop:3}}>⏱ {menu.tutTempo}</div>
+                      )}
                     </div>
                   </div>
-                  <div style={{textAlign:'right',minWidth:76}}>
+                  <div style={{textAlign:'right',minWidth:80}}>
                     <span style={{display:'inline-block',background:'rgba(57,255,20,0.1)',border:'1px solid #1a6600',color:'#39ff14',fontSize:10,padding:'2px 8px',borderRadius:20,fontWeight:700}}>{ex.sets}セット</span>
                     <div style={{fontSize:13,fontWeight:800,marginTop:3}}>{ex.reps}</div>
+                    {/* TUT必要・両側 → 片側秒数表示 */}
+                    {exShowTut&&exBothSides&&menu.tutTempo&&parseInt(ex.reps)>0&&(
+                      <div style={{fontSize:10,color:'#ffd60a',marginTop:2}}>片側{Math.round(tutSec/2)}秒/セット</div>
+                    )}
+                    {/* TUT必要・片側 → 合計秒数表示 */}
+                    {exShowTut&&!exBothSides&&menu.tutTempo&&parseInt(ex.reps)>0&&(
+                      <div style={{fontSize:10,color:'#ffd60a',marginTop:2}}>約{tutSec}秒/セット</div>
+                    )}
+                    {/* TUT不要・両側 → 片側秒数表示 */}
+                    {!exShowTut&&exBothSides&&(
+                      <div style={{fontSize:10,color:'#ffd60a',marginTop:2}}>片側{ex.durationSec||30}秒/セット</div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -449,6 +534,9 @@ export default function MenuPage() {
               </div>
               {postureExercises.map((ex: any, i: number) => {
                 const idx = exerciseIndex++
+                const exBothSides = isBothSidesReps(ex.reps || '')
+                const exShowTut = shouldShowTut(ex.name)
+                const tutSec = calcTutSec(ex, menu?.tutTempo || '')
                 return (
                   <div key={i} onClick={()=>toggleCheck(String(idx))}
                     style={{padding:'10px 0',borderBottom:'1px solid #2a2a36',cursor:'pointer',opacity:checked[idx]?0.6:1}}>
@@ -466,6 +554,9 @@ export default function MenuPage() {
                       <div style={{textAlign:'right',minWidth:76}}>
                         <span style={{display:'inline-block',background:'rgba(204,68,255,0.1)',border:'1px solid #cc44ff44',color:'#cc44ff',fontSize:10,padding:'2px 8px',borderRadius:20,fontWeight:700}}>{ex.sets}セット</span>
                         <div style={{fontSize:13,fontWeight:800,marginTop:3}}>{ex.reps}</div>
+                        {!exShowTut&&exBothSides&&(
+                          <div style={{fontSize:10,color:'#ffd60a',marginTop:2}}>片側{ex.durationSec||30}秒/セット</div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -482,13 +573,11 @@ export default function MenuPage() {
           )}
         </div>
 
-        {/* トレーニング開始ボタン */}
         <button onClick={startTraining}
           style={{width:'100%',padding:'16px',background:'#39ff14',color:'#000',border:'none',borderRadius:16,fontSize:16,fontWeight:800,cursor:'pointer',marginBottom:10}}>
           ▶ トレーニング開始
         </button>
 
-        {/* 手動チェック完了 */}
         <div style={{background:'#1e1e26',borderRadius:16,padding:'14px',border:'1px solid #2a2a36',marginBottom:10,textAlign:'center'}}>
           <div style={{fontSize:11,color:'#666',marginBottom:6}}>
             {allChecked?'全種目チェック済み！':`${Object.values(checked).filter(Boolean).length}/${allExercises.length} チェック済み`}

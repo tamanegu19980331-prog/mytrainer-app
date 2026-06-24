@@ -67,7 +67,6 @@ export async function POST(req: NextRequest) {
     const todayIdx = today === 0 ? 6 : today - 1
     const dayNames = ['月','火','水','木','金','土','日']
 
-    // 曜日別スケジュール取得
     const { data: scheduleData } = await supabase
       .from('weekly_schedule')
       .select('*')
@@ -82,8 +81,6 @@ export async function POST(req: NextRequest) {
     const bmiNum = Number(bmi)
     const bmiLabel = bmiNum < 18.5 ? '低体重' : bmiNum < 25 ? '標準' : bmiNum < 30 ? '過体重' : '肥満'
 
-    // 曜日カテゴリでフィルタリング
-    // 曜日カテゴリでフィルタリング
     const filteredMenuDB = todayCategory && !isRestDay
       ? menuDB?.filter(m => m.category === todayCategory || m.category === '姿勢改善')
       : menuDB
@@ -99,6 +96,14 @@ export async function POST(req: NextRequest) {
       tags: m.tags,
       description: m.description,
     })) || []
+
+    const tutGuide = `
+TUT目安:
+- 筋力向上: 10〜20秒/セット（テンポ: 2秒下げ・1秒止め・1秒上げ）
+- 筋肥大: 30〜60秒/セット（テンポ: 4秒下げ・1秒止め・2秒上げ）
+- 筋持久力: 60秒以上/セット（テンポ: 2秒下げ・0秒止め・2秒上げ）
+- 引き締め: 20〜40秒/セット（テンポ: 3秒下げ・1秒止め・1秒上げ）
+- 健康維持: 20〜30秒/セット（テンポ: 2秒下げ・0秒止め・2秒上げ）`
 
     const prompt = `
 あなたは現役パーソナルトレーナー監修AIです。
@@ -123,11 +128,14 @@ ${diagText}
 【利用可能なメニューDB】
 ${JSON.stringify(menuList, null, 2)}
 
+${tutGuide}
+
 【指示】
 1. ユーザーの性別・BMI・年齢・目標・診断結果・体力テスト結果を総合的に分析する
-2. 今日のカテゴリに合ったメニューを1つ選択する（姿勢改善以外）
+2. 今日のカテゴリに合ったメニューを1つ選択する
 3. 姿勢の問題がある場合は姿勢改善メニューも1つ選択する
 4. 体力テスト結果に基づいて難易度を調整する
+5. ユーザーの目標に合ったTUTを決定する
 
 以下のJSON形式のみで返してください（マークダウン記号不要）:
 {
@@ -137,7 +145,10 @@ ${JSON.stringify(menuList, null, 2)}
   "typeReason": "タイプ判定の理由50字",
   "greeting": "トレーナーからの一言",
   "whyThisMenu": "このメニューを選んだ理由60字",
-  "closingTip": "トレーニング後のアドバイス"
+  "closingTip": "トレーニング後のアドバイス",
+  "tutSeconds": 40,
+  "tutTempo": "4秒下げ・1秒止め・2秒上げ",
+  "tutGoal": "筋肥大"
 }
 `
 
@@ -181,6 +192,9 @@ ${JSON.stringify(menuList, null, 2)}
       typeReason: parsed.typeReason,
       menuId: selectedMenu.id,
       postureMenuId: selectedPostureMenu?.id || null,
+      tutSeconds: parsed.tutSeconds || 30,
+      tutTempo: parsed.tutTempo || '',
+      tutGoal: parsed.tutGoal || '',
     })
 
   } catch (e) {
