@@ -83,7 +83,11 @@ export async function POST(req: NextRequest) {
     const bmiLabel = bmiNum < 18.5 ? '低体重' : bmiNum < 25 ? '標準' : bmiNum < 30 ? '過体重' : '肥満'
 
     // 曜日カテゴリでフィルタリング
-    const menuList = menuDB?.map(m => ({
+    // 曜日カテゴリでフィルタリング
+    const filteredMenuDB = todayCategory && !isRestDay
+      ? menuDB?.filter(m => m.category === todayCategory || m.category === '姿勢改善')
+      : menuDB
+    const menuList = (filteredMenuDB?.length ? filteredMenuDB : menuDB)?.map(m => ({
       id: m.id,
       name: m.name,
       category: m.category,
