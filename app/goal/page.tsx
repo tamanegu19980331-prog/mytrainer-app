@@ -1,131 +1,138 @@
 'use client'
-
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
-const GOAL_PERSONS = [
-    {id:"m_muscle",gender:"M",label:"筋肉質（マッスル体型）",pct:"10〜15%",feat:"筋肉量が多く全体的に厚みがある。逆三角形でたくましい体型。",color:"#4a90d9",left:0,top:3,w:33.3,h:44},
-    {id:"m_fit",gender:"M",label:"標準（アスレティック体型）",pct:"15〜18%",feat:"筋肉がしっかりついており、引き締まって健康的な体型。",color:"#4a90d9",left:33.3,top:3,w:33.4,h:44},
-    {id:"m_slim",gender:"M",label:"細身（スリム体型）",pct:"8〜14%",feat:"細く引き締まった体型。筋肉量は少なめで脂肪も少ない。",color:"#4a90d9",left:66.7,top:3,w:33.3,h:44},
-    {id:"f_glamour",gender:"F",label:"メリハリ体型（グラマラス）",pct:"30〜35%",feat:"バストやヒップにボリュームがあり、メリハリのある女性らしい体型。",color:"#e8758a",left:0,top:52,w:33.3,h:45},
-    {id:"f_healthy",gender:"F",label:"標準（ヘルシー体型）",pct:"25〜30%",feat:"適度に筋肉があり、女性らしい自然で健康的な体型。",color:"#e8758a",left:33.3,top:52,w:33.4,h:45},
-    {id:"f_slim",gender:"F",label:"細身（スリム体型）",pct:"18〜24%",feat:"脂肪が少なく細く引き締まった体型。華奢でスレンダーな印象。",color:"#e8758a",left:66.7,top:52,w:33.3,h:45},
-  ]
+const GOALS = [
+  {
+    id: 'fat_loss',
+    label: '脂肪燃焼・ダイエット',
+    emoji: '🔥',
+    desc: '体脂肪を落としてスリムな体へ',
+    color: '#ff6b35',
+  },
+  {
+    id: 'muscle_gain',
+    label: '筋肥大・筋力アップ',
+    emoji: '💪',
+    desc: '筋肉をつけて力強い体へ',
+    color: '#39ff14',
+  },
+  {
+    id: 'hip_up',
+    label: 'ヒップアップ・引き締め',
+    emoji: '✨',
+    desc: 'お尻・脚のラインを整える',
+    color: '#ff6b9d',
+  },
+  {
+    id: 'posture',
+    label: '姿勢改善・体幹強化',
+    emoji: '🧍',
+    desc: '正しい姿勢と安定した体幹へ',
+    color: '#cc44ff',
+  },
+  {
+    id: 'health',
+    label: '健康維持・体力向上',
+    emoji: '❤️',
+    desc: '毎日元気に動ける体づくり',
+    color: '#00c8ff',
+  },
+  {
+    id: 'sport',
+    label: 'スポーツパフォーマンス向上',
+    emoji: '⚡',
+    desc: '競技力を高める機能的な体へ',
+    color: '#ffd60a',
+  },
+]
 
 export default function GoalPage() {
-  const [selId, setSelId] = useState<string | null>(null)
-  const [info, setInfo] = useState<any>(null)
+  const [selected, setSelected] = useState<string>('')
   const router = useRouter()
 
-  const pick = (id: string) => {
-    const d = GOAL_PERSONS.find(x => x.id === id)
-    if (!d) return
-    setSelId(id)
-    setInfo(d)
-    localStorage.setItem('mt_goal', id)
-    localStorage.setItem('mt_gender', d.gender === 'M' ? '男性' : '女性')
+  const next = () => {
+    if (!selected) return
+    const goal = GOALS.find(g => g.id === selected)
+    localStorage.setItem('mt_goal', goal?.label || selected)
+    router.push('/fitness-test')
   }
 
   return (
-    <div style={{ background: '#16161a', minHeight: '100vh',
-      color: '#e8e8e8', display: 'flex', justifyContent: 'center' }}>
-      <div style={{ width: '100%', maxWidth: 480, padding: '20px 16px' }}>
+    <div style={{background:'#16161a',minHeight:'100vh',color:'#e8e8e8'}}>
+      <div style={{maxWidth:480,margin:'0 auto',padding:'0 0 60px'}}>
 
         {/* ヘッダー */}
-        <div style={{ padding: '14px 0 12px',
-          borderBottom: '1px solid #2a2a36',
-          marginBottom: 16 }}>
-          <span style={{ fontSize: 11, fontWeight: 800,
-            color: '#39ff14', letterSpacing: 3 }}>⚡ MY TRAINER</span>
-          <span style={{ marginLeft: 16, fontSize: 11, color: '#666' }}>
-            ① 体型ゴール
-          </span>
-        </div>
-
-        <span style={{ fontSize: 10, letterSpacing: 2, color: '#39ff14',
-          textTransform: 'uppercase', fontWeight: 700,
-          display: 'block', marginBottom: 6 }}>
-          Step 1-2 — 理想の体型
-        </span>
-        <p style={{ fontSize: 12, color: '#666',
-          marginBottom: 12, lineHeight: 1.6 }}>
-          タップして目指したい体型を選んでください
-        </p>
-
-        {/* 画像 + オーバーレイ */}
-        <div style={{ position: 'relative', width: '100%',
-          borderRadius: 14, overflow: 'hidden',
-          boxShadow: '0 8px 24px rgba(0,0,0,0.5)', marginBottom: 12 }}>
-          <img
-            src="/goal.jpg"
-            style={{ width: '100%', display: 'block' }}
-            alt="体型選択"
-          />
-          {GOAL_PERSONS.map(p => {
-            const isSel = selId === p.id
-            return (
-              <div key={p.id} onClick={() => pick(p.id)}
-                style={{ position: 'absolute',
-                  left: p.left + '%', top: p.top + '%',
-                  width: p.w + '%', height: p.h + '%',
-                  cursor: 'pointer' }}>
-                <div style={{ position: 'absolute', inset: 3,
-                  borderRadius: 8,
-                  border: isSel
-                    ? `3px solid ${p.color}`
-                    : '3px solid transparent',
-                  background: isSel ? p.color + '22' : 'transparent',
-                  transition: 'all 0.18s', pointerEvents: 'none' }} />
-                {isSel && (
-                  <div style={{ position: 'absolute', top: 8, right: 8,
-                    width: 22, height: 22, borderRadius: '50%',
-                    background: p.color, color: '#fff',
-                    fontSize: 13, fontWeight: 900,
-                    display: 'flex', alignItems: 'center',
-                    justifyContent: 'center', zIndex: 10 }}>
-                    ✓
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-
-        {/* 選択結果 */}
-        {info && (
-          <div style={{ marginBottom: 12, padding: '12px 14px',
-            background: info.gender === 'M'
-              ? 'rgba(74,144,217,0.1)' : 'rgba(232,117,138,0.1)',
-            border: `1px solid ${info.color}55`,
-            borderRadius: 12, display: 'flex',
-            alignItems: 'center', gap: 10 }}>
-            <div style={{ fontSize: 22 }}>
-              {info.gender === 'M' ? '💪' : '✨'}
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 12, fontWeight: 800,
-                color: info.color, marginBottom: 2 }}>
-                {info.label} / 体脂肪率 {info.pct}
-              </div>
-              <div style={{ fontSize: 11, color: '#666', lineHeight: 1.5 }}>
-                {info.feat}
-              </div>
-            </div>
+        <div style={{padding:'20px 24px 0',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <div style={{fontSize:13,fontWeight:800,color:'#39ff14',letterSpacing:2}}>MY TRAINER</div>
+          <div style={{display:'flex',alignItems:'center',gap:6}}>
+            {[1,2,3,4,5].map(i=>(
+              <div key={i} style={{width:i===4?24:8,height:4,borderRadius:4,background:i<=4?'#39ff14':'#2a2a36'}}/>
+            ))}
           </div>
-        )}
+        </div>
 
-        {/* ボタン */}
-        <button
-onClick={() => router.push('/fitness-test')}
-          disabled={!selId}
-          style={{ width: '100%', padding: '14px',
-            background: '#39ff14', color: '#000',
-            border: 'none', borderRadius: 12,
-            fontSize: 14, fontWeight: 800, cursor: 'pointer',
-            opacity: !selId ? 0.3 : 1 }}>
-          診断へ進む →
-        </button>
+        <div style={{padding:'32px 24px 0'}}>
+          <div style={{fontSize:11,color:'#39ff14',fontWeight:700,letterSpacing:2,marginBottom:8}}>STEP 4 / 5</div>
+          <div style={{fontSize:28,fontWeight:800,lineHeight:1.3,marginBottom:8}}>
+            目標を<br/>選んでください
+          </div>
+          <div style={{fontSize:14,color:'#666',marginBottom:32}}>
+            あなたの理想の体型に合わせて<br/>最適なメニューを提案します
+          </div>
 
+          <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:24}}>
+            {GOALS.map(g=>{
+              const sel = selected === g.id
+              return (
+                <button key={g.id} onClick={()=>setSelected(g.id)}
+                  style={{
+                    width:'100%',padding:'18px 20px',
+                    background:sel?`rgba(${g.color==='#39ff14'?'57,255,20':g.color==='#ff6b35'?'255,107,53':g.color==='#ff6b9d'?'255,107,157':g.color==='#cc44ff'?'204,68,255':g.color==='#00c8ff'?'0,200,255':'255,214,10'},0.08)`:'#1e1e26',
+                    border:'1.5px solid '+(sel?g.color:'#2a2a36'),
+                    borderRadius:16,cursor:'pointer',
+                    textAlign:'left',transition:'all 0.2s',
+                    display:'flex',alignItems:'center',gap:14,
+                  }}>
+                  <div style={{
+                    width:52,height:52,borderRadius:14,
+                    background:sel?`rgba(${g.color==='#39ff14'?'57,255,20':g.color==='#ff6b35'?'255,107,53':g.color==='#ff6b9d'?'255,107,157':g.color==='#cc44ff'?'204,68,255':g.color==='#00c8ff'?'0,200,255':'255,214,10'},0.15)`:'#25252f',
+                    display:'flex',alignItems:'center',justifyContent:'center',
+                    fontSize:26,flexShrink:0,transition:'all 0.2s',
+                  }}>
+                    {g.emoji}
+                  </div>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:15,fontWeight:700,color:sel?g.color:'#e8e8e8',marginBottom:2,textAlign:'left'}}>{g.label}</div>
+                    <div style={{fontSize:12,color:'#555',textAlign:'left'}}>{g.desc}</div>
+                  </div>
+                  {sel&&(
+                    <div style={{
+                      width:24,height:24,borderRadius:'50%',
+                      background:g.color,flexShrink:0,
+                      display:'flex',alignItems:'center',justifyContent:'center',
+                      fontSize:13,color:'#000',fontWeight:800,
+                    }}>✓</div>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+
+          <button onClick={next} disabled={!selected}
+            style={{
+              width:'100%',padding:'18px',
+              background:selected?'linear-gradient(135deg,#39ff14,#00c8ff)':'#1e1e26',
+              color:selected?'#000':'#444',
+              border:'none',borderRadius:16,
+              fontSize:16,fontWeight:800,
+              cursor:selected?'pointer':'not-allowed',
+              transition:'all 0.2s',
+              boxShadow:selected?'0 4px 20px rgba(57,255,20,0.2)':'none',
+            }}>
+            次へ → 体力テスト
+          </button>
+        </div>
       </div>
     </div>
   )
