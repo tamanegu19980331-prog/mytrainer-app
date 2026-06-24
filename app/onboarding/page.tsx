@@ -47,94 +47,173 @@ export default function OnboardingPage() {
 
   const isValid = profile.name && profile.gender && profile.height && profile.weight && profile.age
 
-  return (
-    <div style={{background:'#16161a',minHeight:'100vh',color:'#e8e8e8',display:'flex',justifyContent:'center'}}>
-      <div style={{width:'100%',maxWidth:480,padding:'20px 16px'}}>
+  const AGE_GROUPS = [
+    {label:'10代', value:'15'},
+    {label:'20代', value:'25'},
+    {label:'30代', value:'35'},
+    {label:'40代', value:'45'},
+    {label:'50代以上', value:'55'},
+  ]
 
-        <div style={{padding:'14px 0 12px',borderBottom:'1px solid #2a2a36',display:'flex',alignItems:'center',marginBottom:20}}>
-          <span style={{fontSize:11,fontWeight:800,color:'#39ff14',letterSpacing:3}}>MY TRAINER</span>
-          <span style={{marginLeft:'auto',fontSize:11,color:'#666'}}>プロフィール入力</span>
+  const getSelectedAge = () => {
+    const age = Number(profile.age)
+    if (age < 20) return '15'
+    if (age < 30) return '25'
+    if (age < 40) return '35'
+    if (age < 50) return '45'
+    if (age >= 50) return '55'
+    return ''
+  }
+
+  return (
+    <div style={{background:'#16161a',minHeight:'100vh',color:'#e8e8e8'}}>
+      <div style={{maxWidth:480,margin:'0 auto',padding:'0 0 60px'}}>
+
+        {/* ヘッダー */}
+        <div style={{padding:'20px 24px 0',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <div style={{fontSize:13,fontWeight:800,color:'#39ff14',letterSpacing:2}}>MY TRAINER</div>
+          <div style={{display:'flex',alignItems:'center',gap:6}}>
+            {[1,2,3,4,5].map(i=>(
+              <div key={i} style={{width:i===1?24:8,height:4,borderRadius:4,background:i===1?'#39ff14':'#2a2a36'}}/>
+            ))}
+          </div>
         </div>
 
-        <div style={{background:'#1e1e26',borderRadius:16,padding:'20px 16px',border:'1px solid #2a2a36'}}>
-          <div style={{fontSize:10,letterSpacing:2,color:'#39ff14',textTransform:'uppercase',fontWeight:700,marginBottom:4}}>
-            Step 1 — プロフィール
+        <div style={{padding:'32px 24px 0'}}>
+          <div style={{fontSize:11,color:'#39ff14',fontWeight:700,letterSpacing:2,marginBottom:8}}>STEP 1 / 5</div>
+          <div style={{fontSize:28,fontWeight:800,lineHeight:1.3,marginBottom:8}}>
+            あなたの情報を<br/>教えてください
           </div>
-          <div style={{fontSize:20,fontWeight:800,marginBottom:6}}>基本情報を入力</div>
-          <p style={{fontSize:13,color:'#666',marginBottom:16}}>性別・年齢によって診断内容が変わります。</p>
+          <div style={{fontSize:14,color:'#666',marginBottom:32}}>
+            最適なトレーニングを提案するために<br/>基本情報が必要です
+          </div>
 
           {/* ニックネーム */}
-          <div style={{marginBottom:12}}>
-            <label style={{fontSize:10,color:'#666',fontWeight:700,letterSpacing:1,display:'block',marginBottom:4}}>ニックネーム</label>
-            <input style={{width:'100%',background:'#25252f',border:'1px solid #2a2a36',borderRadius:10,padding:'10px 12px',color:'#e8e8e8',fontSize:14,outline:'none'}}
-              placeholder="例：たろう" value={profile.name}
-              onChange={e=>setProfile(p=>({...p,name:e.target.value}))}/>
+          <div style={{marginBottom:24}}>
+            <div style={{fontSize:12,color:'#888',fontWeight:600,marginBottom:10}}>ニックネーム</div>
+            <input
+              style={{
+                width:'100%', background:'#1e1e26',
+                border:'1.5px solid '+(profile.name?'#39ff14':'#2a2a36'),
+                borderRadius:14, padding:'16px 18px',
+                color:'#e8e8e8', fontSize:16, outline:'none',
+                transition:'border 0.2s',
+              }}
+              placeholder="例：たろう"
+              value={profile.name}
+              onChange={e=>setProfile(p=>({...p,name:e.target.value}))}
+            />
           </div>
 
           {/* 性別 */}
-          <div style={{marginBottom:12}}>
-            <label style={{fontSize:10,color:'#666',fontWeight:700,letterSpacing:1,display:'block',marginBottom:4}}>性別</label>
-            <div style={{display:'flex',gap:8}}>
-              {[{v:'男性',l:'👨 男性'},{v:'女性',l:'👩 女性'}].map(g=>(
+          <div style={{marginBottom:24}}>
+            <div style={{fontSize:12,color:'#888',fontWeight:600,marginBottom:10}}>性別</div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+              {[{v:'男性',emoji:'👨',label:'男性'},{v:'女性',emoji:'👩',label:'女性'}].map(g=>(
                 <button key={g.v} onClick={()=>setProfile(p=>({...p,gender:g.v}))}
-                  style={{flex:1,padding:'14px',background:profile.gender===g.v?'rgba(57,255,20,0.1)':'#25252f',border:`2px solid ${profile.gender===g.v?'#39ff14':'#2a2a36'}`,borderRadius:12,color:profile.gender===g.v?'#39ff14':'#666',fontSize:15,fontWeight:profile.gender===g.v?800:400,cursor:'pointer'}}>
-                  {g.l}
+                  style={{
+                    padding:'20px 16px',
+                    background:profile.gender===g.v?'rgba(57,255,20,0.08)':'#1e1e26',
+                    border:'1.5px solid '+(profile.gender===g.v?'#39ff14':'#2a2a36'),
+                    borderRadius:14, color:profile.gender===g.v?'#39ff14':'#888',
+                    fontSize:15, fontWeight:700, cursor:'pointer',
+                    display:'flex', flexDirection:'column', alignItems:'center', gap:8,
+                    transition:'all 0.2s',
+                  }}>
+                  <span style={{fontSize:28}}>{g.emoji}</span>
+                  <span>{g.label}</span>
                 </button>
               ))}
             </div>
           </div>
 
-          {/* 年齢 */}
-          <div style={{marginBottom:12}}>
-            <label style={{fontSize:10,color:'#666',fontWeight:700,letterSpacing:1,display:'block',marginBottom:4}}>年齢</label>
+          {/* 年代 */}
+          <div style={{marginBottom:24}}>
+            <div style={{fontSize:12,color:'#888',fontWeight:600,marginBottom:10}}>年代</div>
             <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-              {['10代','20代','30代','40代','50代以上'].map(a=>(
-                <button key={a} onClick={()=>setProfile(p=>({...p,age:a==='10代'?'15':a==='20代'?'25':a==='30代'?'35':a==='40代'?'45':'55'}))}
-                  style={{flex:1,minWidth:60,padding:'10px 8px',background:profile.age&&(
-                    (a==='10代'&&Number(profile.age)<20)||(a==='20代'&&Number(profile.age)>=20&&Number(profile.age)<30)||(a==='30代'&&Number(profile.age)>=30&&Number(profile.age)<40)||(a==='40代'&&Number(profile.age)>=40&&Number(profile.age)<50)||(a==='50代以上'&&Number(profile.age)>=50)
-                  )?'rgba(57,255,20,0.1)':'#25252f',border:`2px solid ${profile.age&&(
-                    (a==='10代'&&Number(profile.age)<20)||(a==='20代'&&Number(profile.age)>=20&&Number(profile.age)<30)||(a==='30代'&&Number(profile.age)>=30&&Number(profile.age)<40)||(a==='40代'&&Number(profile.age)>=40&&Number(profile.age)<50)||(a==='50代以上'&&Number(profile.age)>=50)
-                  )?'#39ff14':'#2a2a36'}`,borderRadius:10,color:profile.age&&(
-                    (a==='10代'&&Number(profile.age)<20)||(a==='20代'&&Number(profile.age)>=20&&Number(profile.age)<30)||(a==='30代'&&Number(profile.age)>=30&&Number(profile.age)<40)||(a==='40代'&&Number(profile.age)>=40&&Number(profile.age)<50)||(a==='50代以上'&&Number(profile.age)>=50)
-                  )?'#39ff14':'#666',fontSize:12,fontWeight:700,cursor:'pointer'}}>
-                  {a}
+              {AGE_GROUPS.map(a=>(
+                <button key={a.value} onClick={()=>setProfile(p=>({...p,age:a.value}))}
+                  style={{
+                    flex:1, minWidth:60, padding:'14px 8px',
+                    background:getSelectedAge()===a.value?'rgba(57,255,20,0.08)':'#1e1e26',
+                    border:'1.5px solid '+(getSelectedAge()===a.value?'#39ff14':'#2a2a36'),
+                    borderRadius:12, color:getSelectedAge()===a.value?'#39ff14':'#888',
+                    fontSize:13, fontWeight:700, cursor:'pointer',
+                    transition:'all 0.2s',
+                  }}>
+                  {a.label}
                 </button>
               ))}
             </div>
           </div>
 
           {/* 身長・体重 */}
-          <div style={{display:'flex',gap:10,marginBottom:12}}>
-            <div style={{flex:1}}>
-              <label style={{fontSize:10,color:'#666',fontWeight:700,letterSpacing:1,display:'block',marginBottom:4}}>身長 (cm)</label>
-              <input type="number" style={{width:'100%',background:'#25252f',border:'1px solid #2a2a36',borderRadius:10,padding:'10px 12px',color:'#e8e8e8',fontSize:14,outline:'none'}}
-                placeholder="170" value={profile.height}
-                onChange={e=>setProfile(p=>({...p,height:e.target.value}))}/>
-            </div>
-            <div style={{flex:1}}>
-              <label style={{fontSize:10,color:'#666',fontWeight:700,letterSpacing:1,display:'block',marginBottom:4}}>体重 (kg)</label>
-              <input type="number" style={{width:'100%',background:'#25252f',border:'1px solid #2a2a36',borderRadius:10,padding:'10px 12px',color:'#e8e8e8',fontSize:14,outline:'none'}}
-                placeholder="65" value={profile.weight}
-                onChange={e=>setProfile(p=>({...p,weight:e.target.value}))}/>
+          <div style={{marginBottom:24}}>
+            <div style={{fontSize:12,color:'#888',fontWeight:600,marginBottom:10}}>身長・体重</div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+              {[
+                {key:'height',label:'身長',unit:'cm',placeholder:'170'},
+                {key:'weight',label:'体重',unit:'kg',placeholder:'65'},
+              ].map(item=>(
+                <div key={item.key} style={{position:'relative'}}>
+                  <div style={{fontSize:11,color:'#666',marginBottom:6}}>{item.label}</div>
+                  <div style={{position:'relative'}}>
+                    <input type="number"
+                      style={{
+                        width:'100%', background:'#1e1e26',
+                        border:'1.5px solid '+((profile as any)[item.key]?'#39ff14':'#2a2a36'),
+                        borderRadius:14, padding:'16px 44px 16px 18px',
+                        color:'#e8e8e8', fontSize:18, fontWeight:700,
+                        outline:'none', transition:'border 0.2s',
+                      }}
+                      placeholder={item.placeholder}
+                      value={(profile as any)[item.key]}
+                      onChange={e=>setProfile(p=>({...p,[item.key]:e.target.value}))}
+                    />
+                    <div style={{position:'absolute',right:14,top:'50%',transform:'translateY(-50%)',fontSize:12,color:'#666',fontWeight:600}}>
+                      {item.unit}
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 
           {/* BMI */}
           {bmi&&(
-            <div style={{background:'#25252f',border:'1px solid #2a2a36',borderRadius:10,padding:'10px 14px',marginBottom:14}}>
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
-                <span style={{fontSize:12,color:'#666'}}>BMI</span>
-                <span style={{fontSize:18,fontWeight:800,color:bmiColor}}>{bmi} <span style={{fontSize:11,fontWeight:400,color:'#666'}}>{bmiLabel}</span></span>
+            <div style={{
+              background:'#1e1e26', borderRadius:14, padding:'16px 18px',
+              marginBottom:24, border:'1px solid #2a2a36',
+            }}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+                <div>
+                  <div style={{fontSize:12,color:'#666',marginBottom:2}}>BMI</div>
+                  <div style={{fontSize:11,color:bmiColor,fontWeight:600}}>{bmiLabel}</div>
+                </div>
+                <div style={{fontSize:32,fontWeight:800,color:bmiColor}}>{bmi}</div>
               </div>
-              <div style={{background:'#2a2a36',borderRadius:4,overflow:'hidden',height:4}}>
-                <div style={{height:'100%',width:`${Math.min((Number(bmi)/40)*100,100)}%`,background:bmiColor,transition:'width 0.5s'}}/>
+              <div style={{background:'#2a2a36',borderRadius:6,overflow:'hidden',height:6}}>
+                <div style={{height:'100%',width:`${Math.min((Number(bmi)/40)*100,100)}%`,background:bmiColor,borderRadius:6,transition:'width 0.5s'}}/>
+              </div>
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:10,color:'#444',marginTop:6}}>
+                <span>低体重</span><span>標準</span><span>過体重</span><span>肥満</span>
               </div>
             </div>
           )}
 
+          {/* ボタン */}
           <button onClick={saveProfile} disabled={loading||!isValid}
-            style={{width:'100%',padding:'14px',background:'#39ff14',color:'#000',border:'none',borderRadius:12,fontSize:14,fontWeight:800,cursor:'pointer',opacity:loading||!isValid?0.3:1}}>
-            {loading?'保存中...':'次へ →'}
+            style={{
+              width:'100%', padding:'18px',
+              background:isValid?'#39ff14':'#1e1e26',
+              color:isValid?'#000':'#444',
+              border:'none', borderRadius:16,
+              fontSize:16, fontWeight:800,
+              cursor:isValid?'pointer':'not-allowed',
+              opacity:loading?0.7:1,
+              transition:'all 0.2s',
+            }}>
+            {loading?'保存中...':'次へ → 姿勢チェック'}
           </button>
         </div>
       </div>

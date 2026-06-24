@@ -28,30 +28,24 @@ const isBothSidesReps = (reps: string) =>
   reps?.includes('両側') || reps?.includes('両手') || reps?.includes('左右')
 
 function calcTutSec(ex: any, tutTempo: string): number {
-    const repsText = ex.reps || ''
-    const bothSides = isBothSidesReps(repsText)
-  
-    // ① 秒指定の種目（TUT不要）両側は2倍
-    if (repsText.includes('秒')) {
-      const base = ex.durationSec || 30
-      return bothSides ? base * 2 : base
-    }
-  
-    // ② 回数指定でTUT必要な種目
-    const repsNum = parseInt(repsText) || 0
-    if (shouldShowTut(ex.name) && tutTempo && repsNum > 0) {
-      const nums = tutTempo.match(/\d+/g)?.map(Number) || []
-      const secPerRep = nums.reduce((a, b) => a + b, 0)
-      if (secPerRep > 0) {
-        const multiplier = bothSides ? 2 : 1
-        return Math.max(secPerRep * repsNum * multiplier, ex.durationSec || 30)
-      }
-    }
-  
-    // ③ TUT不要・回数指定（バードドッグ等）両側は2倍
+  const repsText = ex.reps || ''
+  const bothSides = isBothSidesReps(repsText)
+  if (repsText.includes('秒')) {
     const base = ex.durationSec || 30
     return bothSides ? base * 2 : base
   }
+  const repsNum = parseInt(repsText) || 0
+  if (shouldShowTut(ex.name) && tutTempo && repsNum > 0) {
+    const nums = tutTempo.match(/\d+/g)?.map(Number) || []
+    const secPerRep = nums.reduce((a, b) => a + b, 0)
+    if (secPerRep > 0) {
+      const multiplier = bothSides ? 2 : 1
+      return Math.max(secPerRep * repsNum * multiplier, ex.durationSec || 30)
+    }
+  }
+  const base = ex.durationSec || 30
+  return bothSides ? base * 2 : base
+}
 
 export default function MenuPage() {
   const [status, setStatus] = useState<'loading'|'done'|'error'>('loading')
@@ -80,18 +74,12 @@ export default function MenuPage() {
   ]
 
   useEffect(() => { generateMenu() }, [])
-
   useEffect(() => {
     if (status !== 'loading') return
-    const iv = setInterval(() => {
-      setStep(s => Math.min(s + 1, steps.length - 1))
-    }, 1200)
+    const iv = setInterval(() => setStep(s => Math.min(s + 1, steps.length - 1)), 1200)
     return () => clearInterval(iv)
   }, [status])
-
-  useEffect(() => {
-    return () => clearInterval(intervalRef.current)
-  }, [])
+  useEffect(() => () => clearInterval(intervalRef.current), [])
 
   const generateMenu = async () => {
     try {
@@ -120,10 +108,7 @@ export default function MenuPage() {
         menu_name: data.theme, menu_data: data,
         user_type: data.userType || '', completed: false,
       })
-    } catch (e) {
-      console.error(e)
-      setStatus('error')
-    }
+    } catch (e) { console.error(e); setStatus('error') }
   }
 
   const getAllExercises = (m: any) => [
@@ -132,13 +117,8 @@ export default function MenuPage() {
   ]
 
   const allExercises = getAllExercises(menu)
-
-  const toggleCheck = (key: string) => {
-    setChecked(c => ({ ...c, [key]: !c[key] }))
-  }
-
-  const allChecked = allExercises.length > 0 &&
-    allExercises.every((_: any, i: number) => checked[i])
+  const toggleCheck = (key: string) => setChecked(c => ({ ...c, [key]: !c[key] }))
+  const allChecked = allExercises.length > 0 && allExercises.every((_: any, i: number) => checked[i])
 
   const startTraining = () => {
     const exercises = getAllExercises(menuRef.current)
@@ -157,81 +137,50 @@ export default function MenuPage() {
     setTimer(sec)
     let t = sec
     intervalRef.current = setInterval(() => {
-      t--
-      setTimer(t)
-      if (t <= 0) {
-        clearInterval(intervalRef.current)
-        setPhase('exercise')
-        startExerciseTimer(exIdx)
-      }
+      t--; setTimer(t)
+      if (t <= 0) { clearInterval(intervalRef.current); setPhase('exercise'); startExerciseTimer(exIdx) }
     }, 1000)
   }
 
   const startExerciseTimer = (exIdx: number) => {
     const ex = exercisesRef.current[exIdx]
     if (!ex) return
-    const tutTempo = menuRef.current?.tutTempo || ''
-    const sec = calcTutSec(ex, tutTempo)
+    const sec = calcTutSec(ex, menuRef.current?.tutTempo || '')
     setTimer(sec)
     let t = sec
     intervalRef.current = setInterval(() => {
-      t--
-      setTimer(t)
-      if (t <= 0) {
-        clearInterval(intervalRef.current)
-        setPhase('rest')
-        startRestTimer(exIdx)
-      }
+      t--; setTimer(t)
+      if (t <= 0) { clearInterval(intervalRef.current); setPhase('rest'); startRestTimer(exIdx) }
     }, 1000)
   }
 
   const startRestTimer = (exIdx: number) => {
-    const ex = exercisesRef.current[exIdx]
-    const restSec = ex?.restSec || 60
+    const restSec = exercisesRef.current[exIdx]?.restSec || 60
     setTimer(restSec)
     let t = restSec
     intervalRef.current = setInterval(() => {
-      t--
-      setTimer(t)
-      if (t <= 0) {
-        clearInterval(intervalRef.current)
-        nextSet(exIdx)
-      }
+      t--; setTimer(t)
+      if (t <= 0) { clearInterval(intervalRef.current); nextSet(exIdx) }
     }, 1000)
   }
 
   const nextSet = (exIdx: number) => {
-    const ex = exercisesRef.current[exIdx]
-    const totalSets = ex?.sets || 3
+    const totalSets = exercisesRef.current[exIdx]?.sets || 3
     setCurrentSet(s => {
       const next = s + 1
-      if (next <= totalSets) {
-        setPhase('exercise')
-        startExerciseTimer(exIdx)
-        return next
-      } else {
-        const nextIdx = exIdx + 1
-        if (nextIdx < exercisesRef.current.length) {
-          setCurrentExIdx(nextIdx)
-          setPhase('countdown')
-          startCountdown(5, nextIdx)
-          return 1
-        } else {
-          setPhase('done')
-          clearInterval(intervalRef.current)
-          const newChecked: Record<string, boolean> = {}
-          exercisesRef.current.forEach((_: any, i: number) => { newChecked[i] = true })
-          setChecked(newChecked)
-          return s
-        }
+      if (next <= totalSets) { setPhase('exercise'); startExerciseTimer(exIdx); return next }
+      const nextIdx = exIdx + 1
+      if (nextIdx < exercisesRef.current.length) {
+        setCurrentExIdx(nextIdx); setPhase('countdown'); startCountdown(5, nextIdx); return 1
       }
+      setPhase('done'); clearInterval(intervalRef.current)
+      const nc: Record<string,boolean> = {}
+      exercisesRef.current.forEach((_:any,i:number)=>{nc[i]=true})
+      setChecked(nc); return s
     })
   }
 
-  const skipRest = () => {
-    clearInterval(intervalRef.current)
-    nextSet(currentExIdx)
-  }
+  const skipRest = () => { clearInterval(intervalRef.current); nextSet(currentExIdx) }
 
   const completeTraining = async () => {
     try {
@@ -239,105 +188,105 @@ export default function MenuPage() {
       if (!user) return
       const exercises = getAllExercises(menuRef.current)
       const m = menuRef.current
-      const baseExp = m.level === '上級' ? 60 : m.level === '中級' ? 40 : 25
-      const bonusExp = exercises.length * 5
-      const totalExp = baseExp + bonusExp
+      const baseExp = m.level==='上級'?60:m.level==='中級'?40:25
+      const totalExp = baseExp + exercises.length * 5
       setExpGained(totalExp)
-      const { data: profile } = await supabase
-        .from('users').select('exp, level, streak, best_streak, last_trained').eq('id', user.id).single()
-      const currentExp = profile?.exp || 0
+      const { data: prof } = await supabase.from('users').select('exp,level,streak,best_streak,last_trained').eq('id',user.id).single()
+      const currentExp = prof?.exp || 0
       const newExp = currentExp + totalExp
-      const oldLv = getLevel(currentExp)
-      const newLv = getLevel(newExp)
+      const oldLv = getLevel(currentExp), newLv = getLevel(newExp)
       if (newLv.lv > oldLv.lv) setLevelUp(newLv)
-      const today = new Date().toISOString().slice(0, 10)
-      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10)
-      const lastTrained = profile?.last_trained
+      const today = new Date().toISOString().slice(0,10)
+      const yesterday = new Date(Date.now()-86400000).toISOString().slice(0,10)
       let streak = 1
-      if (lastTrained === yesterday) streak = (profile?.streak || 0) + 1
-      else if (lastTrained === today) streak = profile?.streak || 1
-      const bestStreak = Math.max(streak, profile?.best_streak || 0)
+      if (prof?.last_trained===yesterday) streak=(prof?.streak||0)+1
+      else if (prof?.last_trained===today) streak=prof?.streak||1
       setNewStreak(streak)
-      await supabase.from('users').update({
-        exp: newExp, level: newLv.lv,
-        streak, best_streak: bestStreak, last_trained: today,
-      }).eq('id', user.id)
-      await supabase.from('training_logs')
-        .update({ completed: true })
-        .eq('user_id', user.id)
-        .eq('menu_name', m.theme)
-        .eq('completed', false)
-      const exerciseData = exercises.map((ex: any) => ({
-        user_id: user.id,
-        menu_name: m.theme,
-        exercise_name: ex.name,
-        sets: ex.sets || 3,
-        reps: ex.reps || '',
-        duration_sec: ex.durationSec || 0,
-        completed: true,
-      }))
-      if (exerciseData.length > 0) {
-        await supabase.from('exercise_logs').insert(exerciseData)
-      }
+      await supabase.from('users').update({exp:newExp,level:newLv.lv,streak,best_streak:Math.max(streak,prof?.best_streak||0),last_trained:today}).eq('id',user.id)
+      await supabase.from('training_logs').update({completed:true}).eq('user_id',user.id).eq('menu_name',m.theme).eq('completed',false)
+      const exData = exercises.map((ex:any)=>({user_id:user.id,menu_name:m.theme,exercise_name:ex.name,sets:ex.sets||3,reps:ex.reps||'',duration_sec:ex.durationSec||0,completed:true}))
+      if (exData.length>0) await supabase.from('exercise_logs').insert(exData)
       setCompleted(true)
-    } catch(e) { console.error(e) }
+    } catch(e){console.error(e)}
   }
 
-  if (status === 'loading') return (
-    <div style={{background:'#16161a',minHeight:'100vh',color:'#e8e8e8',display:'flex',justifyContent:'center'}}>
-      <div style={{width:'100%',maxWidth:480,padding:'20px 16px',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
-        <div style={{fontSize:50,marginBottom:16}}>⚡</div>
-        <div style={{fontSize:15,fontWeight:800,color:'#39ff14',marginBottom:20}}>メニューを生成中...</div>
-        {steps.map((s,i)=>(
-          <div key={i} style={{width:'100%',padding:'9px 14px',background:i<=step?'#1e1e26':'#25252f',border:'1px solid '+(i===step?'#39ff14':'#2a2a36'),borderRadius:9,fontSize:12,color:i<step?'#39ff14':i===step?'#e8e8e8':'#666',marginBottom:6,display:'flex',alignItems:'center',gap:8}}>
-            <span>{i<step?'✓':i===step?'⚡':'○'}</span>{s}
-          </div>
-        ))}
+  // ローディング画面
+  if (status==='loading') return (
+    <div style={{background:'#16161a',minHeight:'100vh',display:'flex',justifyContent:'center',alignItems:'center'}}>
+      <div style={{width:'100%',maxWidth:480,padding:'0 24px',textAlign:'center'}}>
+        <div style={{fontSize:56,marginBottom:20}}>⚡</div>
+        <div style={{fontSize:20,fontWeight:800,color:'#39ff14',marginBottom:8}}>メニューを生成中</div>
+        <div style={{fontSize:13,color:'#555',marginBottom:32}}>AIがあなたに最適なメニューを分析しています</div>
+        <div style={{display:'flex',flexDirection:'column',gap:8}}>
+          {steps.map((s,i)=>(
+            <div key={i} style={{
+              padding:'14px 18px',
+              background:i<=step?'#1e1e26':'transparent',
+              border:'1px solid '+(i===step?'#39ff14':'#2a2a36'),
+              borderRadius:12,fontSize:13,
+              color:i<step?'#39ff14':i===step?'#e8e8e8':'#444',
+              display:'flex',alignItems:'center',gap:10,
+              transition:'all 0.3s',
+            }}>
+              <span style={{fontSize:16}}>{i<step?'✅':i===step?'⚡':'○'}</span>
+              {s}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )
 
-  if (status === 'error') return (
+  if (status==='error') return (
     <div style={{background:'#16161a',minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center'}}>
-      <div style={{textAlign:'center',padding:'0 20px'}}>
-        <div style={{fontSize:40,marginBottom:12}}>⚠️</div>
-        <div style={{color:'#ff4455',fontWeight:700,marginBottom:16}}>生成に失敗しました</div>
-        <button onClick={generateMenu} style={{padding:'14px 24px',background:'#39ff14',color:'#000',border:'none',borderRadius:12,fontSize:14,fontWeight:800,cursor:'pointer'}}>再試行する</button>
+      <div style={{textAlign:'center',padding:'0 24px'}}>
+        <div style={{fontSize:48,marginBottom:16}}>⚠️</div>
+        <div style={{fontSize:18,fontWeight:800,color:'#ff4455',marginBottom:8}}>生成に失敗しました</div>
+        <div style={{fontSize:13,color:'#555',marginBottom:24}}>ネットワークを確認して再試行してください</div>
+        <button onClick={generateMenu} style={{padding:'16px 32px',background:'#39ff14',color:'#000',border:'none',borderRadius:14,fontSize:15,fontWeight:800,cursor:'pointer'}}>再試行する</button>
       </div>
     </div>
   )
 
   if (!menu) return null
 
-  const normalExercises = menu.exercises?.filter((ex: any) => !ex.isSeparator) || []
-  const postureExercises = menu.postureExercises || []
+  const normalExercises = menu.exercises?.filter((ex:any)=>!ex.isSeparator)||[]
+  const postureExercises = menu.postureExercises||[]
   let exerciseIndex = 0
 
+  // レベルアップ画面
   if (levelUp) return (
     <div style={{background:'#16161a',minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center'}}>
-      <div style={{textAlign:'center',padding:'0 20px'}}>
+      <div style={{textAlign:'center',padding:'0 24px'}}>
         <div style={{fontSize:80,marginBottom:16}}>🎉</div>
-        <div style={{fontSize:28,fontWeight:800,color:'#ffd60a',marginBottom:8}}>LEVEL UP!</div>
-        <div style={{fontSize:20,fontWeight:800,color:'#e8e8e8',marginBottom:4}}>Lv.{levelUp.lv} {levelUp.title}</div>
-        <div style={{fontSize:14,color:'#666',marginBottom:32}}>おめでとうございます！</div>
-        <button onClick={()=>router.push('/dashboard')}
-          style={{padding:'16px 32px',background:'#ffd60a',color:'#000',border:'none',borderRadius:16,fontSize:16,fontWeight:800,cursor:'pointer'}}>
+        <div style={{fontSize:32,fontWeight:800,color:'#ffd60a',marginBottom:8}}>LEVEL UP!</div>
+        <div style={{fontSize:22,fontWeight:800,marginBottom:4}}>Lv.{levelUp.lv}</div>
+        <div style={{fontSize:16,color:'#888',marginBottom:32}}>{levelUp.title} になりました！</div>
+        <button onClick={()=>router.push('/dashboard')} style={{padding:'18px 40px',background:'#ffd60a',color:'#000',border:'none',borderRadius:16,fontSize:16,fontWeight:800,cursor:'pointer'}}>
           ダッシュボードへ →
         </button>
       </div>
     </div>
   )
 
+  // 完了画面
   if (completed) return (
     <div style={{background:'#16161a',minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center'}}>
-      <div style={{textAlign:'center',padding:'0 20px',maxWidth:400}}>
-        <div style={{fontSize:64,marginBottom:16}}>💪</div>
-        <div style={{fontSize:24,fontWeight:800,color:'#39ff14',marginBottom:8}}>トレーニング完了！</div>
-        <div style={{fontSize:16,color:'#ffd60a',fontWeight:800,marginBottom:4}}>+{expGained} EXP獲得！</div>
-        {newStreak>1&&<div style={{fontSize:14,color:'#ff8c00',fontWeight:700,marginBottom:4}}>🔥 {newStreak}日連続！</div>}
-        <div style={{fontSize:13,color:'#666',marginBottom:32}}>お疲れ様でした！</div>
-        <button onClick={()=>router.push('/dashboard')}
-          style={{width:'100%',padding:'16px',background:'#39ff14',color:'#000',border:'none',borderRadius:16,fontSize:16,fontWeight:800,cursor:'pointer'}}>
+      <div style={{textAlign:'center',padding:'0 24px',maxWidth:400}}>
+        <div style={{fontSize:72,marginBottom:16}}>💪</div>
+        <div style={{fontSize:28,fontWeight:800,color:'#39ff14',marginBottom:8}}>トレーニング完了！</div>
+        <div style={{
+          display:'inline-block',
+          background:'rgba(255,215,10,0.1)',border:'1px solid rgba(255,215,10,0.3)',
+          borderRadius:12,padding:'10px 20px',marginBottom:12,
+        }}>
+          <span style={{fontSize:20,fontWeight:800,color:'#ffd60a'}}>+{expGained} EXP</span>
+        </div>
+        {newStreak>1&&(
+          <div style={{fontSize:14,color:'#ff8c00',fontWeight:700,marginBottom:8}}>🔥 {newStreak}日連続トレーニング！</div>
+        )}
+        <div style={{fontSize:13,color:'#555',marginBottom:32}}>お疲れ様でした。継続が力です！</div>
+        <button onClick={()=>router.push('/dashboard')} style={{width:'100%',padding:'18px',background:'linear-gradient(135deg,#39ff14,#00c8ff)',color:'#000',border:'none',borderRadius:16,fontSize:16,fontWeight:800,cursor:'pointer'}}>
           ダッシュボードへ →
         </button>
       </div>
@@ -345,24 +294,22 @@ export default function MenuPage() {
   )
 
   // トレーニングモード
-  if (mode === 'training') {
+  if (mode==='training') {
     const currentEx = allExercises[currentExIdx]
-    const currentTutSec = currentEx ? calcTutSec(currentEx, menu?.tutTempo || '') : 30
-    const currentBothSides = isBothSidesReps(currentEx?.reps || '')
-    const currentShowTut = shouldShowTut(currentEx?.name || '')
+    const currentTutSec = currentEx?calcTutSec(currentEx,menu?.tutTempo||''):30
+    const currentBothSides = isBothSidesReps(currentEx?.reps||'')
+    const currentShowTut = shouldShowTut(currentEx?.name||'')
 
-    if (phase === 'done') return (
+    if (phase==='done') return (
       <div style={{background:'#16161a',minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center'}}>
-        <div style={{textAlign:'center',padding:'0 20px'}}>
-          <div style={{fontSize:64,marginBottom:16}}>🏆</div>
-          <div style={{fontSize:24,fontWeight:800,color:'#39ff14',marginBottom:8}}>全種目完了！</div>
-          <div style={{fontSize:13,color:'#666',marginBottom:24}}>素晴らしい！EXPを獲得しましょう</div>
-          <button onClick={completeTraining}
-            style={{width:'100%',padding:'16px',background:'#39ff14',color:'#000',border:'none',borderRadius:16,fontSize:16,fontWeight:800,cursor:'pointer',marginBottom:10}}>
+        <div style={{textAlign:'center',padding:'0 24px'}}>
+          <div style={{fontSize:72,marginBottom:16}}>🏆</div>
+          <div style={{fontSize:28,fontWeight:800,color:'#39ff14',marginBottom:8}}>全種目完了！</div>
+          <div style={{fontSize:14,color:'#555',marginBottom:32}}>素晴らしい！EXPを獲得しましょう</div>
+          <button onClick={completeTraining} style={{width:'100%',padding:'18px',background:'linear-gradient(135deg,#39ff14,#00c8ff)',color:'#000',border:'none',borderRadius:16,fontSize:16,fontWeight:800,cursor:'pointer',marginBottom:12}}>
             ✅ EXPを獲得する
           </button>
-          <button onClick={()=>setMode('view')}
-            style={{width:'100%',padding:'13px',background:'transparent',color:'#666',border:'1px solid #2a2a36',borderRadius:12,fontSize:13,cursor:'pointer'}}>
+          <button onClick={()=>setMode('view')} style={{width:'100%',padding:'16px',background:'transparent',color:'#666',border:'1px solid #2a2a36',borderRadius:14,fontSize:14,cursor:'pointer'}}>
             メニューに戻る
           </button>
         </div>
@@ -371,80 +318,93 @@ export default function MenuPage() {
 
     return (
       <div style={{background:'#16161a',minHeight:'100vh',color:'#e8e8e8'}}>
-        <div style={{maxWidth:480,margin:'0 auto',padding:'20px 16px'}}>
-          <div style={{marginBottom:16}}>
-            <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'#666',marginBottom:6}}>
-              <span>{currentExIdx+1}/{allExercises.length} 種目</span>
-              <span>{currentSet}/{currentEx?.sets||3} セット</span>
+        <div style={{maxWidth:480,margin:'0 auto',padding:'24px 24px 40px'}}>
+
+          {/* 進捗 */}
+          <div style={{marginBottom:20}}>
+            <div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'#666',marginBottom:8}}>
+              <span>種目 {currentExIdx+1} / {allExercises.length}</span>
+              <span>セット {currentSet} / {currentEx?.sets||3}</span>
             </div>
             <div style={{background:'#2a2a36',borderRadius:8,height:6,overflow:'hidden'}}>
-              <div style={{height:'100%',background:'#39ff14',borderRadius:8,transition:'width 0.3s',
+              <div style={{height:'100%',background:'linear-gradient(to right,#39ff14,#00c8ff)',borderRadius:8,transition:'width 0.3s',
                 width:`${((currentExIdx*3+currentSet-1)/(allExercises.length*3))*100}%`}}/>
             </div>
           </div>
 
-          <div style={{background:'#1e1e26',borderRadius:16,padding:'24px',border:'1px solid #2a2a36',marginBottom:16,textAlign:'center'}}>
+          {/* タイマーカード */}
+          <div style={{background:'#1e1e26',borderRadius:24,padding:'32px 24px',border:'1px solid #2a2a36',marginBottom:16,textAlign:'center'}}>
+
             {phase==='countdown'&&(
               <>
-                <div style={{fontSize:13,color:'#666',marginBottom:8}}>次の種目まで</div>
-                <div style={{fontSize:28,fontWeight:800,color:'#39ff14',marginBottom:4}}>{currentEx?.name}</div>
-                <div style={{fontSize:13,color:'#ffd60a',marginBottom:4}}>{currentEx?.reps}</div>
+                <div style={{fontSize:13,color:'#555',marginBottom:12}}>次の種目まで</div>
+                <div style={{fontSize:24,fontWeight:800,color:'#39ff14',marginBottom:4}}>{currentEx?.name}</div>
+                <div style={{fontSize:14,color:'#888',marginBottom:8}}>{currentEx?.reps}</div>
                 {currentShowTut&&menu.tutTempo&&(
-                  <div style={{fontSize:11,color:'#ffd60a',marginBottom:4}}>⏱ {menu.tutTempo}</div>
+                  <div style={{fontSize:12,color:'#ffd60a',marginBottom:8}}>⏱ {menu.tutTempo}</div>
                 )}
                 {currentBothSides&&(
-                  <div style={{padding:'6px 12px',background:'rgba(255,215,10,0.1)',border:'1px solid rgba(255,215,10,0.3)',borderRadius:8,marginBottom:12,fontSize:11,color:'#ffd60a'}}>
+                  <div style={{display:'inline-block',background:'rgba(255,215,10,0.1)',border:'1px solid rgba(255,215,10,0.2)',borderRadius:10,padding:'8px 16px',marginBottom:16,fontSize:12,color:'#ffd60a'}}>
                     右{Math.round(currentTutSec/2)}秒 → 左{Math.round(currentTutSec/2)}秒
                   </div>
                 )}
-                <div style={{fontSize:80,fontWeight:800,color:timer<=3?'#ff4455':'#ffd60a',marginBottom:8}}>{timer}</div>
-                <div style={{fontSize:13,color:'#666'}}>秒後にスタート</div>
+                <div style={{fontSize:96,fontWeight:800,color:timer<=3?'#ff4455':'#ffd60a',lineHeight:1,marginBottom:8,fontVariantNumeric:'tabular-nums'}}>{timer}</div>
+                <div style={{fontSize:14,color:'#555'}}>秒後にスタート</div>
               </>
             )}
+
             {phase==='exercise'&&(
               <>
-                <div style={{fontSize:11,color:'#39ff14',fontWeight:700,marginBottom:8}}>SET {currentSet}/{currentEx?.sets||3}</div>
-                <div style={{fontSize:24,fontWeight:800,marginBottom:4}}>{currentEx?.name}</div>
-                <div style={{fontSize:14,color:'#ffd60a',fontWeight:700,marginBottom:4}}>{currentEx?.reps}</div>
+                <div style={{
+                  display:'inline-block',background:'rgba(57,255,20,0.1)',
+                  border:'1px solid rgba(57,255,20,0.2)',borderRadius:20,
+                  padding:'6px 16px',marginBottom:16,
+                  fontSize:12,color:'#39ff14',fontWeight:700,
+                }}>
+                  SET {currentSet} / {currentEx?.sets||3}
+                </div>
+                <div style={{fontSize:22,fontWeight:800,marginBottom:4}}>{currentEx?.name}</div>
+                <div style={{fontSize:15,color:'#ffd60a',fontWeight:700,marginBottom:4}}>{currentEx?.reps}</div>
                 {currentShowTut&&menu.tutTempo&&(
-                  <div style={{fontSize:11,color:'#ffd60a',marginBottom:4}}>⏱ {menu.tutTempo}</div>
+                  <div style={{fontSize:12,color:'#ffd60a',marginBottom:4}}>⏱ {menu.tutTempo}</div>
                 )}
                 {currentBothSides&&(
-                  <div style={{padding:'6px 12px',background:'rgba(255,215,10,0.1)',border:'1px solid rgba(255,215,10,0.3)',borderRadius:8,marginBottom:8,fontSize:11,color:'#ffd60a'}}>
+                  <div style={{display:'inline-block',background:'rgba(255,215,10,0.1)',border:'1px solid rgba(255,215,10,0.2)',borderRadius:10,padding:'6px 14px',marginBottom:12,fontSize:12,color:'#ffd60a'}}>
                     右{Math.round(currentTutSec/2)}秒 → 左{Math.round(currentTutSec/2)}秒
                   </div>
                 )}
-                <div style={{fontSize:11,color:'#666',marginBottom:12}}>{currentEx?.muscle}</div>
-                <div style={{fontSize:80,fontWeight:800,color:timer<=10?'#ff4455':'#39ff14',marginBottom:8,fontVariantNumeric:'tabular-nums'}}>{timer}</div>
-                <div style={{fontSize:13,color:'#666'}}>秒</div>
+                <div style={{fontSize:11,color:'#555',marginBottom:16}}>{currentEx?.muscle}</div>
+                <div style={{fontSize:96,fontWeight:800,color:timer<=10?'#ff4455':'#39ff14',lineHeight:1,marginBottom:4,fontVariantNumeric:'tabular-nums'}}>{timer}</div>
+                <div style={{fontSize:14,color:'#555'}}>秒</div>
               </>
             )}
+
             {phase==='rest'&&(
               <>
-                <div style={{fontSize:20,marginBottom:8}}>😮‍💨</div>
-                <div style={{fontSize:20,fontWeight:800,color:'#666',marginBottom:16}}>休憩中</div>
-                <div style={{fontSize:80,fontWeight:800,color:'#00c8ff',marginBottom:8,fontVariantNumeric:'tabular-nums'}}>{timer}</div>
-                <div style={{fontSize:13,color:'#666',marginBottom:16}}>秒</div>
-                <div style={{fontSize:12,color:'#666',marginBottom:16}}>
+                <div style={{fontSize:32,marginBottom:8}}>😮‍💨</div>
+                <div style={{fontSize:20,fontWeight:800,color:'#555',marginBottom:20}}>休憩中</div>
+                <div style={{fontSize:96,fontWeight:800,color:'#00c8ff',lineHeight:1,marginBottom:4,fontVariantNumeric:'tabular-nums'}}>{timer}</div>
+                <div style={{fontSize:14,color:'#555',marginBottom:20}}>秒</div>
+                <div style={{fontSize:13,color:'#444',marginBottom:20}}>
                   次: {currentSet<(currentEx?.sets||3)?`セット${currentSet+1}`:allExercises[currentExIdx+1]?.name||'完了'}
                 </div>
-                <button onClick={skipRest}
-                  style={{padding:'10px 24px',background:'transparent',color:'#39ff14',border:'1px solid #39ff14',borderRadius:10,fontSize:13,fontWeight:700,cursor:'pointer'}}>
+                <button onClick={skipRest} style={{padding:'12px 28px',background:'transparent',color:'#39ff14',border:'1px solid #39ff14',borderRadius:12,fontSize:14,fontWeight:700,cursor:'pointer'}}>
                   スキップ →
                 </button>
               </>
             )}
           </div>
 
+          {/* ポイント */}
           {currentEx?.why&&(
-            <div style={{background:'rgba(0,200,255,0.1)',borderRadius:12,padding:'12px 14px',border:'1px solid rgba(0,200,255,0.3)',marginBottom:16}}>
-              <div style={{fontSize:10,color:'#00c8ff',fontWeight:700,marginBottom:3}}>📌 ポイント</div>
-              <div style={{fontSize:12,lineHeight:1.6}}>{currentEx.why}</div>
+            <div style={{background:'rgba(0,200,255,0.06)',borderRadius:14,padding:'14px 18px',border:'1px solid rgba(0,200,255,0.15)',marginBottom:16}}>
+              <div style={{fontSize:11,color:'#00c8ff',fontWeight:700,marginBottom:4}}>📌 トレーナーのポイント</div>
+              <div style={{fontSize:13,lineHeight:1.7,color:'#888'}}>{currentEx.why}</div>
             </div>
           )}
 
           <button onClick={()=>{clearInterval(intervalRef.current);setMode('view')}}
-            style={{width:'100%',padding:'13px',background:'transparent',color:'#666',border:'1px solid #2a2a36',borderRadius:12,fontSize:13,cursor:'pointer'}}>
+            style={{width:'100%',padding:'16px',background:'transparent',color:'#444',border:'1px solid #2a2a36',borderRadius:14,fontSize:13,cursor:'pointer'}}>
             中断する（EXPなし）
           </button>
         </div>
@@ -454,153 +414,205 @@ export default function MenuPage() {
 
   // 通常表示モード
   return (
-    <div style={{background:'#16161a',minHeight:'100vh',color:'#e8e8e8',display:'flex',justifyContent:'center'}}>
-      <div style={{width:'100%',maxWidth:480,padding:'20px 16px'}}>
+    <div style={{background:'#16161a',minHeight:'100vh',color:'#e8e8e8'}}>
+      <div style={{maxWidth:480,margin:'0 auto',padding:'0 0 60px'}}>
 
-        <div style={{padding:'14px 0 12px',borderBottom:'1px solid #2a2a36',marginBottom:16}}>
-          <span style={{fontSize:11,fontWeight:800,color:'#39ff14',letterSpacing:3}}>⚡ 今日のメニュー</span>
+        {/* ヘッダー */}
+        <div style={{padding:'20px 24px',borderBottom:'1px solid #1e1e26',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <div>
+            <div style={{fontSize:11,color:'#39ff14',fontWeight:700,letterSpacing:2,marginBottom:2}}>TODAY'S MENU</div>
+            <div style={{fontSize:20,fontWeight:800}}>{menu.theme}</div>
+          </div>
+          <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:6}}>
+            <span style={{background:'rgba(57,255,20,0.1)',border:'1px solid rgba(57,255,20,0.2)',color:'#39ff14',fontSize:11,padding:'4px 12px',borderRadius:20,fontWeight:700}}>{menu.level}</span>
+            {menu.tutGoal&&<span style={{background:'rgba(255,215,10,0.1)',border:'1px solid rgba(255,215,10,0.2)',color:'#ffd60a',fontSize:11,padding:'4px 12px',borderRadius:20,fontWeight:700}}>{menu.tutGoal}</span>}
+          </div>
         </div>
 
-        <div style={{background:'#1e1e26',borderRadius:16,padding:'20px 16px',border:'1px solid #2a2a36',marginBottom:16}}>
-          <div style={{fontSize:10,letterSpacing:2,color:'#39ff14',fontWeight:700,marginBottom:4}}>⚡ お任せメニュー</div>
-          <div style={{fontSize:18,fontWeight:800,marginBottom:4}}>{menu.theme}</div>
-          <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:16,flexWrap:'wrap'}}>
-            <span style={{display:'inline-block',background:'rgba(57,255,20,0.1)',border:'1px solid #1a6600',color:'#39ff14',fontSize:10,padding:'2px 8px',borderRadius:20,fontWeight:700}}>{menu.level}</span>
-            {menu.tutGoal&&<span style={{display:'inline-block',background:'rgba(255,215,10,0.1)',border:'1px solid rgba(255,215,10,0.3)',color:'#ffd60a',fontSize:10,padding:'2px 8px',borderRadius:20,fontWeight:700}}>目標: {menu.tutGoal}</span>}
-          </div>
+        <div style={{padding:'20px 24px 0'}}>
 
+          {/* 提案理由 */}
           {menu.whyThisMenu&&(
-            <div style={{padding:'10px 12px',background:'rgba(204,68,255,0.1)',border:'1px solid rgba(204,68,255,0.4)',borderRadius:10,marginBottom:14}}>
-              <div style={{fontSize:10,color:'#cc44ff',fontWeight:700,marginBottom:3}}>このメニューを提案した理由</div>
-              <div style={{fontSize:12,color:'#666',lineHeight:1.6}}>{menu.whyThisMenu}</div>
+            <div style={{background:'rgba(204,68,255,0.06)',border:'1px solid rgba(204,68,255,0.15)',borderRadius:16,padding:'16px 18px',marginBottom:20}}>
+              <div style={{fontSize:11,color:'#cc44ff',fontWeight:700,marginBottom:6}}>🧠 このメニューを提案した理由</div>
+              <div style={{fontSize:13,color:'#888',lineHeight:1.7}}>{menu.whyThisMenu}</div>
             </div>
           )}
 
-          <div style={{fontSize:10,color:'#39ff14',fontWeight:700,letterSpacing:1,marginBottom:10,display:'flex',alignItems:'center',gap:6}}>
-            <div style={{flex:1,height:1,background:'#1a6600'}}/>
-            💪 トレーニングメニュー
-            <div style={{flex:1,height:1,background:'#1a6600'}}/>
-          </div>
+          {/* トレーニングメニュー */}
+          <div style={{marginBottom:8}}>
+            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
+              <div style={{width:3,height:18,background:'#39ff14',borderRadius:2}}/>
+              <div style={{fontSize:14,fontWeight:800,color:'#39ff14'}}>トレーニングメニュー</div>
+            </div>
 
-          {normalExercises.map((ex: any, i: number) => {
-            const idx = exerciseIndex++
-            const tutSec = calcTutSec(ex, menu?.tutTempo || '')
-            const exBothSides = isBothSidesReps(ex.reps || '')
-            const exShowTut = shouldShowTut(ex.name)
-            return (
-              <div key={i} onClick={()=>toggleCheck(String(idx))}
-                style={{padding:'10px 0',borderBottom:'1px solid #2a2a36',cursor:'pointer',opacity:checked[idx]?0.6:1}}>
-                <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
-                  <div style={{display:'flex',gap:10,flex:1}}>
-                    <div style={{width:24,height:24,borderRadius:'50%',background:checked[idx]?'#39ff14':'#25252f',border:'2px solid '+(checked[idx]?'#39ff14':'#2a2a36'),display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,flexShrink:0,marginTop:2}}>
-                      {checked[idx]&&'✓'}
-                    </div>
-                    <div style={{flex:1}}>
-                      <div style={{fontWeight:700,fontSize:13,textDecoration:checked[idx]?'line-through':'none'}}>{i+1}. {ex.name}</div>
-                      <div style={{fontSize:11,color:'#666',marginTop:2}}>{ex.muscle} · 休憩{ex.restSec}秒</div>
-                      <div style={{fontSize:11,color:'#00c8ff',marginTop:3}}>📌 {ex.why}</div>
-                      {exShowTut&&menu.tutTempo&&(
-                        <div style={{fontSize:10,color:'#ffd60a',marginTop:3}}>⏱ {menu.tutTempo}</div>
-                      )}
-                    </div>
-                  </div>
-                  <div style={{textAlign:'right',minWidth:80}}>
-                    <span style={{display:'inline-block',background:'rgba(57,255,20,0.1)',border:'1px solid #1a6600',color:'#39ff14',fontSize:10,padding:'2px 8px',borderRadius:20,fontWeight:700}}>{ex.sets}セット</span>
-                    <div style={{fontSize:13,fontWeight:800,marginTop:3}}>{ex.reps}</div>
-                    {/* TUT必要・両側 → 片側秒数表示 */}
-                    {exShowTut&&exBothSides&&menu.tutTempo&&parseInt(ex.reps)>0&&(
-                      <div style={{fontSize:10,color:'#ffd60a',marginTop:2}}>片側{Math.round(tutSec/2)}秒/セット</div>
-                    )}
-                    {/* TUT必要・片側 → 合計秒数表示 */}
-                    {exShowTut&&!exBothSides&&menu.tutTempo&&parseInt(ex.reps)>0&&(
-                      <div style={{fontSize:10,color:'#ffd60a',marginTop:2}}>約{tutSec}秒/セット</div>
-                    )}
-                    {/* TUT不要・両側 → 片側秒数表示 */}
-                    {!exShowTut&&exBothSides&&(
-                      <div style={{fontSize:10,color:'#ffd60a',marginTop:2}}>片側{ex.durationSec||30}秒/セット</div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )
-          })}
-
-          {postureExercises.length>0&&(
-            <>
-              <div style={{padding:'14px 0 8px',display:'flex',alignItems:'center',gap:8,marginTop:4}}>
-                <div style={{flex:1,height:1,background:'linear-gradient(to right, #cc44ff66, transparent)'}}/>
-                <div style={{fontSize:11,fontWeight:800,color:'#cc44ff',whiteSpace:'nowrap'}}>🧍 姿勢改善メニュー</div>
-                <div style={{flex:1,height:1,background:'linear-gradient(to left, #cc44ff66, transparent)'}}/>
-              </div>
-              {postureExercises.map((ex: any, i: number) => {
+            <div style={{display:'flex',flexDirection:'column',gap:8}}>
+              {normalExercises.map((ex:any,i:number)=>{
                 const idx = exerciseIndex++
-                const exBothSides = isBothSidesReps(ex.reps || '')
+                const tutSec = calcTutSec(ex, menu?.tutTempo||'')
+                const exBothSides = isBothSidesReps(ex.reps||'')
                 const exShowTut = shouldShowTut(ex.name)
-                const tutSec = calcTutSec(ex, menu?.tutTempo || '')
                 return (
                   <div key={i} onClick={()=>toggleCheck(String(idx))}
-                    style={{padding:'10px 0',borderBottom:'1px solid #2a2a36',cursor:'pointer',opacity:checked[idx]?0.6:1}}>
-                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
-                      <div style={{display:'flex',gap:10,flex:1}}>
-                        <div style={{width:24,height:24,borderRadius:'50%',background:checked[idx]?'#cc44ff':'#25252f',border:'2px solid '+(checked[idx]?'#cc44ff':'#2a2a36'),display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,flexShrink:0,marginTop:2}}>
-                          {checked[idx]&&'✓'}
+                    style={{
+                      background:checked[idx]?'rgba(57,255,20,0.04)':'#1e1e26',
+                      borderRadius:16,padding:'16px 18px',
+                      border:'1px solid '+(checked[idx]?'rgba(57,255,20,0.2)':'#2a2a36'),
+                      cursor:'pointer',transition:'all 0.2s',
+                      opacity:checked[idx]?0.6:1,
+                    }}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
+                      <div style={{display:'flex',gap:12,flex:1}}>
+                        <div style={{
+                          width:28,height:28,borderRadius:'50%',flexShrink:0,marginTop:2,
+                          background:checked[idx]?'#39ff14':'#25252f',
+                          border:'2px solid '+(checked[idx]?'#39ff14':'#333'),
+                          display:'flex',alignItems:'center',justifyContent:'center',
+                          fontSize:13,transition:'all 0.2s',
+                        }}>
+                          {checked[idx]?'✓':''}
                         </div>
                         <div style={{flex:1}}>
-                          <div style={{fontWeight:700,fontSize:13,color:'#cc44ff',textDecoration:checked[idx]?'line-through':'none'}}>{i+1}. {ex.name}</div>
-                          <div style={{fontSize:11,color:'#666',marginTop:2}}>{ex.muscle} · 休憩{ex.restSec}秒</div>
-                          <div style={{fontSize:11,color:'#cc44ff',marginTop:3}}>🧍 {ex.why}</div>
+                          <div style={{fontSize:15,fontWeight:700,marginBottom:4,textDecoration:checked[idx]?'line-through':'none',color:checked[idx]?'#555':'#e8e8e8'}}>
+                            {i+1}. {ex.name}
+                          </div>
+                          <div style={{fontSize:12,color:'#555',marginBottom:4}}>{ex.muscle} · 休憩 {ex.restSec}秒</div>
+                          <div style={{fontSize:12,color:'#00c8ff',lineHeight:1.5}}>📌 {ex.why}</div>
+                          {exShowTut&&menu.tutTempo&&(
+                            <div style={{fontSize:11,color:'#ffd60a',marginTop:4}}>⏱ {menu.tutTempo}</div>
+                          )}
                         </div>
                       </div>
-                      <div style={{textAlign:'right',minWidth:76}}>
-                        <span style={{display:'inline-block',background:'rgba(204,68,255,0.1)',border:'1px solid #cc44ff44',color:'#cc44ff',fontSize:10,padding:'2px 8px',borderRadius:20,fontWeight:700}}>{ex.sets}セット</span>
-                        <div style={{fontSize:13,fontWeight:800,marginTop:3}}>{ex.reps}</div>
+                      <div style={{textAlign:'right',flexShrink:0}}>
+                        <div style={{fontSize:12,color:'#39ff14',fontWeight:700,marginBottom:4}}>{ex.sets}セット</div>
+                        <div style={{fontSize:14,fontWeight:800}}>{ex.reps}</div>
+                        {exShowTut&&exBothSides&&menu.tutTempo&&parseInt(ex.reps)>0&&(
+                          <div style={{fontSize:11,color:'#ffd60a',marginTop:2}}>片側{Math.round(tutSec/2)}秒</div>
+                        )}
+                        {exShowTut&&!exBothSides&&menu.tutTempo&&parseInt(ex.reps)>0&&(
+                          <div style={{fontSize:11,color:'#ffd60a',marginTop:2}}>約{tutSec}秒</div>
+                        )}
                         {!exShowTut&&exBothSides&&(
-                          <div style={{fontSize:10,color:'#ffd60a',marginTop:2}}>片側{ex.durationSec||30}秒/セット</div>
+                          <div style={{fontSize:11,color:'#ffd60a',marginTop:2}}>片側{ex.durationSec||30}秒</div>
                         )}
                       </div>
                     </div>
                   </div>
                 )
               })}
-            </>
-          )}
+            </div>
+          </div>
 
-          {menu.closingTip&&(
-            <div style={{background:'rgba(57,255,20,0.1)',borderRadius:9,padding:'10px 12px',marginTop:12,border:'1px solid #1a6600'}}>
-              <div style={{fontSize:10,color:'#39ff14',fontWeight:700,marginBottom:2}}>💡 トレーニング後のアドバイス</div>
-              <div style={{fontSize:12,lineHeight:1.6}}>{menu.closingTip}</div>
+          {/* 姿勢改善メニュー */}
+          {postureExercises.length>0&&(
+            <div style={{marginBottom:8,marginTop:20}}>
+              <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
+                <div style={{width:3,height:18,background:'#cc44ff',borderRadius:2}}/>
+                <div style={{fontSize:14,fontWeight:800,color:'#cc44ff'}}>姿勢改善メニュー</div>
+              </div>
+              <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                {postureExercises.map((ex:any,i:number)=>{
+                  const idx = exerciseIndex++
+                  const exBothSides = isBothSidesReps(ex.reps||'')
+                  const tutSec = calcTutSec(ex,menu?.tutTempo||'')
+                  return (
+                    <div key={i} onClick={()=>toggleCheck(String(idx))}
+                      style={{
+                        background:checked[idx]?'rgba(204,68,255,0.04)':'#1e1e26',
+                        borderRadius:16,padding:'16px 18px',
+                        border:'1px solid '+(checked[idx]?'rgba(204,68,255,0.2)':'#2a2a36'),
+                        cursor:'pointer',transition:'all 0.2s',
+                        opacity:checked[idx]?0.6:1,
+                      }}>
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
+                        <div style={{display:'flex',gap:12,flex:1}}>
+                          <div style={{
+                            width:28,height:28,borderRadius:'50%',flexShrink:0,marginTop:2,
+                            background:checked[idx]?'#cc44ff':'#25252f',
+                            border:'2px solid '+(checked[idx]?'#cc44ff':'#333'),
+                            display:'flex',alignItems:'center',justifyContent:'center',
+                            fontSize:13,transition:'all 0.2s',
+                          }}>
+                            {checked[idx]?'✓':''}
+                          </div>
+                          <div style={{flex:1}}>
+                            <div style={{fontSize:15,fontWeight:700,marginBottom:4,color:checked[idx]?'#555':'#cc44ff',textDecoration:checked[idx]?'line-through':'none'}}>
+                              {i+1}. {ex.name}
+                            </div>
+                            <div style={{fontSize:12,color:'#555',marginBottom:4}}>{ex.muscle} · 休憩 {ex.restSec}秒</div>
+                            <div style={{fontSize:12,color:'#cc44ff',lineHeight:1.5}}>🧍 {ex.why}</div>
+                          </div>
+                        </div>
+                        <div style={{textAlign:'right',flexShrink:0}}>
+                          <div style={{fontSize:12,color:'#cc44ff',fontWeight:700,marginBottom:4}}>{ex.sets}セット</div>
+                          <div style={{fontSize:14,fontWeight:800}}>{ex.reps}</div>
+                          {!shouldShowTut(ex.name)&&exBothSides&&(
+                            <div style={{fontSize:11,color:'#ffd60a',marginTop:2}}>片側{ex.durationSec||30}秒</div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           )}
-        </div>
 
-        <button onClick={startTraining}
-          style={{width:'100%',padding:'16px',background:'#39ff14',color:'#000',border:'none',borderRadius:16,fontSize:16,fontWeight:800,cursor:'pointer',marginBottom:10}}>
-          ▶ トレーニング開始
-        </button>
+          {/* アドバイス */}
+          {menu.closingTip&&(
+            <div style={{background:'rgba(57,255,20,0.06)',borderRadius:14,padding:'16px 18px',marginTop:20,border:'1px solid rgba(57,255,20,0.15)'}}>
+              <div style={{fontSize:11,color:'#39ff14',fontWeight:700,marginBottom:6}}>💡 トレーニング後のアドバイス</div>
+              <div style={{fontSize:13,lineHeight:1.7,color:'#888'}}>{menu.closingTip}</div>
+            </div>
+          )}
 
-        <div style={{background:'#1e1e26',borderRadius:16,padding:'14px',border:'1px solid #2a2a36',marginBottom:10,textAlign:'center'}}>
-          <div style={{fontSize:11,color:'#666',marginBottom:6}}>
-            {allChecked?'全種目チェック済み！':`${Object.values(checked).filter(Boolean).length}/${allExercises.length} チェック済み`}
+          {/* CTA */}
+          <div style={{marginTop:24}}>
+            <button onClick={startTraining}
+              style={{
+                width:'100%',padding:'20px',
+                background:'linear-gradient(135deg,#39ff14,#00c8ff)',
+                color:'#000',border:'none',borderRadius:18,
+                fontSize:17,fontWeight:800,cursor:'pointer',
+                marginBottom:12,
+                boxShadow:'0 4px 20px rgba(57,255,20,0.2)',
+              }}>
+              ▶ トレーニング開始
+            </button>
+
+            <div style={{background:'#1e1e26',borderRadius:16,padding:'16px 18px',marginBottom:10}}>
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'#555',marginBottom:8}}>
+                <span>進捗</span>
+                <span>{Object.values(checked).filter(Boolean).length} / {allExercises.length} 完了</span>
+              </div>
+              <div style={{background:'#2a2a36',borderRadius:6,height:6,overflow:'hidden',marginBottom:12}}>
+                <div style={{height:'100%',width:`${allExercises.length>0?(Object.values(checked).filter(Boolean).length/allExercises.length)*100:0}%`,background:'#39ff14',transition:'width 0.3s'}}/>
+              </div>
+              <button onClick={completeTraining} disabled={!allChecked}
+                style={{
+                  width:'100%',padding:'14px',
+                  background:allChecked?'rgba(57,255,20,0.1)':'transparent',
+                  color:allChecked?'#39ff14':'#333',
+                  border:'1px solid '+(allChecked?'rgba(57,255,20,0.3)':'#2a2a36'),
+                  borderRadius:12,fontSize:14,fontWeight:700,
+                  cursor:allChecked?'pointer':'not-allowed',
+                  transition:'all 0.2s',
+                }}>
+                {allChecked?'✅ 手動完了・EXP獲得':'全種目チェックで完了'}
+              </button>
+            </div>
+
+            <button onClick={()=>router.push('/dashboard')}
+              style={{width:'100%',padding:'16px',background:'transparent',color:'#555',border:'1px solid #2a2a36',borderRadius:14,fontSize:13,cursor:'pointer',marginBottom:10}}>
+              後でやる → ダッシュボード
+            </button>
+
+            <button onClick={generateMenu}
+              style={{width:'100%',padding:'16px',background:'transparent',color:'#39ff14',border:'1px solid rgba(57,255,20,0.3)',borderRadius:14,fontSize:13,fontWeight:700,cursor:'pointer'}}>
+              🔄 メニューを再生成
+            </button>
           </div>
-          <div style={{background:'#2a2a36',borderRadius:8,height:4,overflow:'hidden',marginBottom:10}}>
-            <div style={{height:'100%',width:`${allExercises.length>0?(Object.values(checked).filter(Boolean).length/allExercises.length)*100:0}%`,background:'#39ff14',transition:'width 0.3s'}}/>
-          </div>
-          <button onClick={completeTraining} disabled={!allChecked}
-            style={{width:'100%',padding:'12px',background:allChecked?'#1e1e26':'#25252f',color:allChecked?'#39ff14':'#444',border:'1px solid '+(allChecked?'#39ff14':'#2a2a36'),borderRadius:10,fontSize:13,fontWeight:700,cursor:allChecked?'pointer':'not-allowed'}}>
-            {allChecked?'✅ 手動完了・EXP獲得':'全種目チェックで完了'}
-          </button>
         </div>
-
-        <button onClick={()=>router.push('/dashboard')}
-          style={{width:'100%',padding:'13px',background:'transparent',color:'#666',border:'1px solid #2a2a36',borderRadius:12,fontSize:13,cursor:'pointer',marginBottom:8}}>
-          後でやる → ダッシュボード
-        </button>
-
-        <button onClick={generateMenu}
-          style={{width:'100%',padding:'13px',background:'transparent',color:'#39ff14',border:'1px solid #39ff14',borderRadius:12,fontSize:13,fontWeight:700,cursor:'pointer'}}>
-          🔄 メニューを再生成
-        </button>
-
       </div>
     </div>
   )
