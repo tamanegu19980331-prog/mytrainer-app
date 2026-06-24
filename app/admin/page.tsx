@@ -10,6 +10,7 @@ export default function AdminPage() {
   const [users, setUsers] = useState<any[]>([])
   const [menus, setMenus] = useState<any[]>([])
   const [logs, setLogs] = useState<any[]>([])
+  const [schedule, setSchedule] = useState<any[]>([])
   const [diagLogs, setDiagLogs] = useState<any[]>([])
   const [showForm, setShowForm] = useState(false)
   const [editMenu, setEditMenu] = useState<any>(null)
@@ -42,6 +43,8 @@ export default function AdminPage() {
     if (u.data) setUsers(u.data)
     if (m.data) setMenus(m.data)
     if (l.data) setLogs(l.data)
+    const s = await supabase.from('weekly_schedule').select('*').order('day_of_week', { ascending: true })
+    if (s.data) setSchedule(s.data)
     if (d.data) setDiagLogs(d.data)
   }
 
