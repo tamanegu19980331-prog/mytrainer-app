@@ -77,7 +77,7 @@ export default function DashboardPage() {
         {/* ヘッダー */}
         <div style={{
           padding:'20px 24px 20px',
-          display:'flex', alignItems:'center', justifyContent:'space-between',
+          display:'flex',alignItems:'center',justifyContent:'space-between',
           borderBottom:'1px solid #1e1e26',
         }}>
           <div>
@@ -109,8 +109,8 @@ export default function DashboardPage() {
 
           {/* レベル・EXPカード */}
           <div style={{
-            background:'#1e1e26', borderRadius:20, padding:'24px',
-            border:'1px solid #2a2a36', marginBottom:16,
+            background:'#1e1e26',borderRadius:20,padding:'24px',
+            border:'1px solid #2a2a36',marginBottom:16,
           }}>
             <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:20}}>
               <div style={{
@@ -166,8 +166,8 @@ export default function DashboardPage() {
 
           {/* プロフィールカード */}
           <div style={{
-            background:'#1e1e26', borderRadius:20, padding:'20px 24px',
-            border:'1px solid #2a2a36', marginBottom:20,
+            background:'#1e1e26',borderRadius:20,padding:'20px 24px',
+            border:'1px solid #2a2a36',marginBottom:20,
           }}>
             <div style={{fontSize:12,color:'#666',fontWeight:600,marginBottom:14}}>あなたのデータ</div>
             <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10}}>
@@ -188,7 +188,7 @@ export default function DashboardPage() {
           </div>
 
           {/* メインCTA */}
-          <button onClick={()=>router.push('/goal')}
+          <button onClick={()=>router.push('/menu')}
             style={{
               width:'100%',padding:'20px',
               background:'linear-gradient(135deg,#39ff14,#00c8ff)',

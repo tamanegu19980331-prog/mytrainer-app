@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { initAudio, playCountdown, playCountdownLast, playStart, playFinish, playNextSet, playExpGain, playLevelUp, playWarning } from '@/lib/sounds'
 
 const LEVELS = [
   {lv:1,title:'入門者',minExp:0},
@@ -85,10 +86,52 @@ export default function MenuPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/auth'); return }
-      const diag    = JSON.parse(localStorage.getItem('mt_diag')    || '{}')
-      const goal    = localStorage.getItem('mt_goal')    || ''
+
+      // 当日すでにメニューがあればDBから読み込む
+      const today = new Date().toISOString().slice(0, 10)
+      const { data: todayLog } = await supabase
+        .from('training_logs').select('*')
+        .eq('user_id', user.id)
+        .gte('created_at', today)
+        .order('created_at', { ascending: false })
+        .limit(1).single()
+      if (todayLog?.menu_data && todayLog.menu_name !== '体力テスト') {
+        menuRef.current = todayLog.menu_data
+        setMenu(todayLog.menu_data)
+        setStatus('done')
+        return
+      }
+
+      const diag = JSON.parse(localStorage.getItem('mt_diag') || '{}')
       const posture = JSON.parse(localStorage.getItem('mt_posture') || '[]')
-      const fitness = JSON.parse(localStorage.getItem('mt_fitness') || '{}')
+
+      // goalはlocalStorageになければDBから取得
+      let goal = localStorage.getItem('mt_goal') || ''
+      if (!goal) {
+        const { data: diagLog } = await supabase
+          .from('diagnosis_logs').select('goal')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1).single()
+        if (diagLog?.goal) goal = diagLog.goal
+      }
+
+      // fitnessはlocalStorageになければDBから取得
+      let fitness = JSON.parse(localStorage.getItem('mt_fitness') || '{}')
+      if (!fitness || Object.keys(fitness).length === 0) {
+        const { data: fitnessLog } = await supabase
+          .from('fitness_logs').select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1).single()
+        if (fitnessLog) {
+          fitness = {
+            pushup: { value: fitnessLog.pushup_value, rank: { rank: fitnessLog.pushup_rank } },
+            situp: { value: fitnessLog.situp_value, rank: { rank: fitnessLog.situp_rank } },
+            plank: { value: fitnessLog.plank_value, rank: { rank: fitnessLog.plank_rank } },
+          }
+        }
+      }
       const { data: profile } = await supabase.from('users').select('*').eq('id', user.id).single()
       const res = await fetch('/api/generate-menu', {
         method: 'POST',
@@ -121,6 +164,7 @@ export default function MenuPage() {
   const allChecked = allExercises.length > 0 && allExercises.every((_: any, i: number) => checked[i])
 
   const startTraining = () => {
+    initAudio()
     const exercises = getAllExercises(menuRef.current)
     exercisesRef.current = exercises
     const firstUnchecked = exercises.findIndex((_: any, i: number) => !checked[i])
@@ -138,7 +182,14 @@ export default function MenuPage() {
     let t = sec
     intervalRef.current = setInterval(() => {
       t--; setTimer(t)
-      if (t <= 0) { clearInterval(intervalRef.current); setPhase('exercise'); startExerciseTimer(exIdx) }
+      if (t <= 3 && t > 0) playCountdownLast()
+      else if (t > 3) playCountdown()
+      if (t <= 0) {
+        clearInterval(intervalRef.current)
+        playStart()
+        setPhase('exercise')
+        startExerciseTimer(exIdx)
+      }
     }, 1000)
   }
 
@@ -150,7 +201,8 @@ export default function MenuPage() {
     let t = sec
     intervalRef.current = setInterval(() => {
       t--; setTimer(t)
-      if (t <= 0) { clearInterval(intervalRef.current); setPhase('rest'); startRestTimer(exIdx) }
+      if (t <= 3 && t > 0) playWarning()
+      if (t <= 0) { clearInterval(intervalRef.current); playFinish(); setPhase('rest'); startRestTimer(exIdx) }
     }, 1000)
   }
 
@@ -160,7 +212,7 @@ export default function MenuPage() {
     let t = restSec
     intervalRef.current = setInterval(() => {
       t--; setTimer(t)
-      if (t <= 0) { clearInterval(intervalRef.current); nextSet(exIdx) }
+      if (t <= 0) { clearInterval(intervalRef.current); playNextSet(); nextSet(exIdx) }
     }, 1000)
   }
 
@@ -180,7 +232,7 @@ export default function MenuPage() {
     })
   }
 
-  const skipRest = () => { clearInterval(intervalRef.current); nextSet(currentExIdx) }
+  const skipRest = () => { clearInterval(intervalRef.current); playNextSet(); nextSet(currentExIdx) }
 
   const completeTraining = async () => {
     try {
@@ -195,7 +247,7 @@ export default function MenuPage() {
       const currentExp = prof?.exp || 0
       const newExp = currentExp + totalExp
       const oldLv = getLevel(currentExp), newLv = getLevel(newExp)
-      if (newLv.lv > oldLv.lv) setLevelUp(newLv)
+      if (newLv.lv > oldLv.lv) { setLevelUp(newLv); playLevelUp() } else { playExpGain() }
       const today = new Date().toISOString().slice(0,10)
       const yesterday = new Date(Date.now()-86400000).toISOString().slice(0,10)
       let streak = 1
@@ -210,7 +262,6 @@ export default function MenuPage() {
     } catch(e){console.error(e)}
   }
 
-  // ローディング画面
   if (status==='loading') return (
     <div style={{background:'#16161a',minHeight:'100vh',display:'flex',justifyContent:'center',alignItems:'center'}}>
       <div style={{width:'100%',maxWidth:480,padding:'0 24px',textAlign:'center'}}>
@@ -219,17 +270,8 @@ export default function MenuPage() {
         <div style={{fontSize:13,color:'#555',marginBottom:32}}>AIがあなたに最適なメニューを分析しています</div>
         <div style={{display:'flex',flexDirection:'column',gap:8}}>
           {steps.map((s,i)=>(
-            <div key={i} style={{
-              padding:'14px 18px',
-              background:i<=step?'#1e1e26':'transparent',
-              border:'1px solid '+(i===step?'#39ff14':'#2a2a36'),
-              borderRadius:12,fontSize:13,
-              color:i<step?'#39ff14':i===step?'#e8e8e8':'#444',
-              display:'flex',alignItems:'center',gap:10,
-              transition:'all 0.3s',
-            }}>
-              <span style={{fontSize:16}}>{i<step?'✅':i===step?'⚡':'○'}</span>
-              {s}
+            <div key={i} style={{padding:'14px 18px',background:i<=step?'#1e1e26':'transparent',border:'1px solid '+(i===step?'#39ff14':'#2a2a36'),borderRadius:12,fontSize:13,color:i<step?'#39ff14':i===step?'#e8e8e8':'#444',display:'flex',alignItems:'center',gap:10,transition:'all 0.3s'}}>
+              <span style={{fontSize:16}}>{i<step?'✅':i===step?'⚡':'○'}</span>{s}
             </div>
           ))}
         </div>
@@ -254,7 +296,6 @@ export default function MenuPage() {
   const postureExercises = menu.postureExercises||[]
   let exerciseIndex = 0
 
-  // レベルアップ画面
   if (levelUp) return (
     <div style={{background:'#16161a',minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center'}}>
       <div style={{textAlign:'center',padding:'0 24px'}}>
@@ -269,22 +310,15 @@ export default function MenuPage() {
     </div>
   )
 
-  // 完了画面
   if (completed) return (
     <div style={{background:'#16161a',minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center'}}>
       <div style={{textAlign:'center',padding:'0 24px',maxWidth:400}}>
         <div style={{fontSize:72,marginBottom:16}}>💪</div>
         <div style={{fontSize:28,fontWeight:800,color:'#39ff14',marginBottom:8}}>トレーニング完了！</div>
-        <div style={{
-          display:'inline-block',
-          background:'rgba(255,215,10,0.1)',border:'1px solid rgba(255,215,10,0.3)',
-          borderRadius:12,padding:'10px 20px',marginBottom:12,
-        }}>
+        <div style={{display:'inline-block',background:'rgba(255,215,10,0.1)',border:'1px solid rgba(255,215,10,0.3)',borderRadius:12,padding:'10px 20px',marginBottom:12}}>
           <span style={{fontSize:20,fontWeight:800,color:'#ffd60a'}}>+{expGained} EXP</span>
         </div>
-        {newStreak>1&&(
-          <div style={{fontSize:14,color:'#ff8c00',fontWeight:700,marginBottom:8}}>🔥 {newStreak}日連続トレーニング！</div>
-        )}
+        {newStreak>1&&<div style={{fontSize:14,color:'#ff8c00',fontWeight:700,marginBottom:8}}>🔥 {newStreak}日連続トレーニング！</div>}
         <div style={{fontSize:13,color:'#555',marginBottom:32}}>お疲れ様でした。継続が力です！</div>
         <button onClick={()=>router.push('/dashboard')} style={{width:'100%',padding:'18px',background:'linear-gradient(135deg,#39ff14,#00c8ff)',color:'#000',border:'none',borderRadius:16,fontSize:16,fontWeight:800,cursor:'pointer'}}>
           ダッシュボードへ →
@@ -293,7 +327,6 @@ export default function MenuPage() {
     </div>
   )
 
-  // トレーニングモード
   if (mode==='training') {
     const currentEx = allExercises[currentExIdx]
     const currentTutSec = currentEx?calcTutSec(currentEx,menu?.tutTempo||''):30
@@ -319,66 +352,42 @@ export default function MenuPage() {
     return (
       <div style={{background:'#16161a',minHeight:'100vh',color:'#e8e8e8'}}>
         <div style={{maxWidth:480,margin:'0 auto',padding:'24px 24px 40px'}}>
-
-          {/* 進捗 */}
           <div style={{marginBottom:20}}>
             <div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'#666',marginBottom:8}}>
               <span>種目 {currentExIdx+1} / {allExercises.length}</span>
               <span>セット {currentSet} / {currentEx?.sets||3}</span>
             </div>
             <div style={{background:'#2a2a36',borderRadius:8,height:6,overflow:'hidden'}}>
-              <div style={{height:'100%',background:'linear-gradient(to right,#39ff14,#00c8ff)',borderRadius:8,transition:'width 0.3s',
-                width:`${((currentExIdx*3+currentSet-1)/(allExercises.length*3))*100}%`}}/>
+              <div style={{height:'100%',background:'linear-gradient(to right,#39ff14,#00c8ff)',borderRadius:8,transition:'width 0.3s',width:`${((currentExIdx*3+currentSet-1)/(allExercises.length*3))*100}%`}}/>
             </div>
           </div>
 
-          {/* タイマーカード */}
           <div style={{background:'#1e1e26',borderRadius:24,padding:'32px 24px',border:'1px solid #2a2a36',marginBottom:16,textAlign:'center'}}>
-
             {phase==='countdown'&&(
               <>
                 <div style={{fontSize:13,color:'#555',marginBottom:12}}>次の種目まで</div>
                 <div style={{fontSize:24,fontWeight:800,color:'#39ff14',marginBottom:4}}>{currentEx?.name}</div>
                 <div style={{fontSize:14,color:'#888',marginBottom:8}}>{currentEx?.reps}</div>
-                {currentShowTut&&menu.tutTempo&&(
-                  <div style={{fontSize:12,color:'#ffd60a',marginBottom:8}}>⏱ {menu.tutTempo}</div>
-                )}
-                {currentBothSides&&(
-                  <div style={{display:'inline-block',background:'rgba(255,215,10,0.1)',border:'1px solid rgba(255,215,10,0.2)',borderRadius:10,padding:'8px 16px',marginBottom:16,fontSize:12,color:'#ffd60a'}}>
-                    右{Math.round(currentTutSec/2)}秒 → 左{Math.round(currentTutSec/2)}秒
-                  </div>
-                )}
+                {currentShowTut&&menu.tutTempo&&<div style={{fontSize:12,color:'#ffd60a',marginBottom:4}}>⏱ {menu.tutTempo}</div>}
+                {currentBothSides&&<div style={{display:'inline-block',background:'rgba(255,215,10,0.1)',border:'1px solid rgba(255,215,10,0.2)',borderRadius:10,padding:'8px 16px',marginBottom:16,fontSize:12,color:'#ffd60a'}}>右{Math.round(currentTutSec/2)}秒 → 左{Math.round(currentTutSec/2)}秒</div>}
                 <div style={{fontSize:96,fontWeight:800,color:timer<=3?'#ff4455':'#ffd60a',lineHeight:1,marginBottom:8,fontVariantNumeric:'tabular-nums'}}>{timer}</div>
                 <div style={{fontSize:14,color:'#555'}}>秒後にスタート</div>
               </>
             )}
-
             {phase==='exercise'&&(
               <>
-                <div style={{
-                  display:'inline-block',background:'rgba(57,255,20,0.1)',
-                  border:'1px solid rgba(57,255,20,0.2)',borderRadius:20,
-                  padding:'6px 16px',marginBottom:16,
-                  fontSize:12,color:'#39ff14',fontWeight:700,
-                }}>
+                <div style={{display:'inline-block',background:'rgba(57,255,20,0.1)',border:'1px solid rgba(57,255,20,0.2)',borderRadius:20,padding:'6px 16px',marginBottom:16,fontSize:12,color:'#39ff14',fontWeight:700}}>
                   SET {currentSet} / {currentEx?.sets||3}
                 </div>
                 <div style={{fontSize:22,fontWeight:800,marginBottom:4}}>{currentEx?.name}</div>
                 <div style={{fontSize:15,color:'#ffd60a',fontWeight:700,marginBottom:4}}>{currentEx?.reps}</div>
-                {currentShowTut&&menu.tutTempo&&(
-                  <div style={{fontSize:12,color:'#ffd60a',marginBottom:4}}>⏱ {menu.tutTempo}</div>
-                )}
-                {currentBothSides&&(
-                  <div style={{display:'inline-block',background:'rgba(255,215,10,0.1)',border:'1px solid rgba(255,215,10,0.2)',borderRadius:10,padding:'6px 14px',marginBottom:12,fontSize:12,color:'#ffd60a'}}>
-                    右{Math.round(currentTutSec/2)}秒 → 左{Math.round(currentTutSec/2)}秒
-                  </div>
-                )}
-                <div style={{fontSize:11,color:'#555',marginBottom:16}}>{currentEx?.muscle}</div>
+                {currentShowTut&&menu.tutTempo&&<div style={{fontSize:12,color:'#ffd60a',marginBottom:4}}>⏱ {menu.tutTempo}</div>}
+                {currentBothSides&&<div style={{display:'inline-block',background:'rgba(255,215,10,0.1)',border:'1px solid rgba(255,215,10,0.2)',borderRadius:10,padding:'6px 14px',marginBottom:12,fontSize:12,color:'#ffd60a'}}>右{Math.round(currentTutSec/2)}秒 → 左{Math.round(currentTutSec/2)}秒</div>}
+                <div style={{fontSize:11,color:'#555',marginBottom:12}}>{currentEx?.muscle}</div>
                 <div style={{fontSize:96,fontWeight:800,color:timer<=10?'#ff4455':'#39ff14',lineHeight:1,marginBottom:4,fontVariantNumeric:'tabular-nums'}}>{timer}</div>
                 <div style={{fontSize:14,color:'#555'}}>秒</div>
               </>
             )}
-
             {phase==='rest'&&(
               <>
                 <div style={{fontSize:32,marginBottom:8}}>😮‍💨</div>
@@ -395,7 +404,6 @@ export default function MenuPage() {
             )}
           </div>
 
-          {/* ポイント */}
           {currentEx?.why&&(
             <div style={{background:'rgba(0,200,255,0.06)',borderRadius:14,padding:'14px 18px',border:'1px solid rgba(0,200,255,0.15)',marginBottom:16}}>
               <div style={{fontSize:11,color:'#00c8ff',fontWeight:700,marginBottom:4}}>📌 トレーナーのポイント</div>
@@ -412,12 +420,9 @@ export default function MenuPage() {
     )
   }
 
-  // 通常表示モード
   return (
     <div style={{background:'#16161a',minHeight:'100vh',color:'#e8e8e8'}}>
       <div style={{maxWidth:480,margin:'0 auto',padding:'0 0 60px'}}>
-
-        {/* ヘッダー */}
         <div style={{padding:'20px 24px',borderBottom:'1px solid #1e1e26',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
           <div>
             <div style={{fontSize:11,color:'#39ff14',fontWeight:700,letterSpacing:2,marginBottom:2}}>TODAY'S MENU</div>
@@ -430,8 +435,6 @@ export default function MenuPage() {
         </div>
 
         <div style={{padding:'20px 24px 0'}}>
-
-          {/* 提案理由 */}
           {menu.whyThisMenu&&(
             <div style={{background:'rgba(204,68,255,0.06)',border:'1px solid rgba(204,68,255,0.15)',borderRadius:16,padding:'16px 18px',marginBottom:20}}>
               <div style={{fontSize:11,color:'#cc44ff',fontWeight:700,marginBottom:6}}>🧠 このメニューを提案した理由</div>
@@ -439,62 +442,38 @@ export default function MenuPage() {
             </div>
           )}
 
-          {/* トレーニングメニュー */}
           <div style={{marginBottom:8}}>
             <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
               <div style={{width:3,height:18,background:'#39ff14',borderRadius:2}}/>
               <div style={{fontSize:14,fontWeight:800,color:'#39ff14'}}>トレーニングメニュー</div>
             </div>
-
             <div style={{display:'flex',flexDirection:'column',gap:8}}>
               {normalExercises.map((ex:any,i:number)=>{
                 const idx = exerciseIndex++
-                const tutSec = calcTutSec(ex, menu?.tutTempo||'')
+                const tutSec = calcTutSec(ex,menu?.tutTempo||'')
                 const exBothSides = isBothSidesReps(ex.reps||'')
                 const exShowTut = shouldShowTut(ex.name)
                 return (
                   <div key={i} onClick={()=>toggleCheck(String(idx))}
-                    style={{
-                      background:checked[idx]?'rgba(57,255,20,0.04)':'#1e1e26',
-                      borderRadius:16,padding:'16px 18px',
-                      border:'1px solid '+(checked[idx]?'rgba(57,255,20,0.2)':'#2a2a36'),
-                      cursor:'pointer',transition:'all 0.2s',
-                      opacity:checked[idx]?0.6:1,
-                    }}>
+                    style={{background:checked[idx]?'rgba(57,255,20,0.04)':'#1e1e26',borderRadius:16,padding:'16px 18px',border:'1px solid '+(checked[idx]?'rgba(57,255,20,0.2)':'#2a2a36'),cursor:'pointer',transition:'all 0.2s',opacity:checked[idx]?0.6:1}}>
                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
                       <div style={{display:'flex',gap:12,flex:1}}>
-                        <div style={{
-                          width:28,height:28,borderRadius:'50%',flexShrink:0,marginTop:2,
-                          background:checked[idx]?'#39ff14':'#25252f',
-                          border:'2px solid '+(checked[idx]?'#39ff14':'#333'),
-                          display:'flex',alignItems:'center',justifyContent:'center',
-                          fontSize:13,transition:'all 0.2s',
-                        }}>
+                        <div style={{width:28,height:28,borderRadius:'50%',flexShrink:0,marginTop:2,background:checked[idx]?'#39ff14':'#25252f',border:'2px solid '+(checked[idx]?'#39ff14':'#333'),display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,transition:'all 0.2s'}}>
                           {checked[idx]?'✓':''}
                         </div>
                         <div style={{flex:1}}>
-                          <div style={{fontSize:15,fontWeight:700,marginBottom:4,textDecoration:checked[idx]?'line-through':'none',color:checked[idx]?'#555':'#e8e8e8'}}>
-                            {i+1}. {ex.name}
-                          </div>
+                          <div style={{fontSize:15,fontWeight:700,marginBottom:4,textDecoration:checked[idx]?'line-through':'none',color:checked[idx]?'#555':'#e8e8e8'}}>{i+1}. {ex.name}</div>
                           <div style={{fontSize:12,color:'#555',marginBottom:4}}>{ex.muscle} · 休憩 {ex.restSec}秒</div>
                           <div style={{fontSize:12,color:'#00c8ff',lineHeight:1.5}}>📌 {ex.why}</div>
-                          {exShowTut&&menu.tutTempo&&(
-                            <div style={{fontSize:11,color:'#ffd60a',marginTop:4}}>⏱ {menu.tutTempo}</div>
-                          )}
+                          {exShowTut&&menu.tutTempo&&<div style={{fontSize:11,color:'#ffd60a',marginTop:4}}>⏱ {menu.tutTempo}</div>}
                         </div>
                       </div>
                       <div style={{textAlign:'right',flexShrink:0}}>
                         <div style={{fontSize:12,color:'#39ff14',fontWeight:700,marginBottom:4}}>{ex.sets}セット</div>
                         <div style={{fontSize:14,fontWeight:800}}>{ex.reps}</div>
-                        {exShowTut&&exBothSides&&menu.tutTempo&&parseInt(ex.reps)>0&&(
-                          <div style={{fontSize:11,color:'#ffd60a',marginTop:2}}>片側{Math.round(tutSec/2)}秒</div>
-                        )}
-                        {exShowTut&&!exBothSides&&menu.tutTempo&&parseInt(ex.reps)>0&&(
-                          <div style={{fontSize:11,color:'#ffd60a',marginTop:2}}>約{tutSec}秒</div>
-                        )}
-                        {!exShowTut&&exBothSides&&(
-                          <div style={{fontSize:11,color:'#ffd60a',marginTop:2}}>片側{ex.durationSec||30}秒</div>
-                        )}
+                        {exShowTut&&exBothSides&&menu.tutTempo&&parseInt(ex.reps)>0&&<div style={{fontSize:11,color:'#ffd60a',marginTop:2}}>片側{Math.round(tutSec/2)}秒</div>}
+                        {exShowTut&&!exBothSides&&menu.tutTempo&&parseInt(ex.reps)>0&&<div style={{fontSize:11,color:'#ffd60a',marginTop:2}}>約{tutSec}秒</div>}
+                        {!exShowTut&&exBothSides&&<div style={{fontSize:11,color:'#ffd60a',marginTop:2}}>片側{ex.durationSec||30}秒</div>}
                       </div>
                     </div>
                   </div>
@@ -503,7 +482,6 @@ export default function MenuPage() {
             </div>
           </div>
 
-          {/* 姿勢改善メニュー */}
           {postureExercises.length>0&&(
             <div style={{marginBottom:8,marginTop:20}}>
               <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
@@ -517,28 +495,14 @@ export default function MenuPage() {
                   const tutSec = calcTutSec(ex,menu?.tutTempo||'')
                   return (
                     <div key={i} onClick={()=>toggleCheck(String(idx))}
-                      style={{
-                        background:checked[idx]?'rgba(204,68,255,0.04)':'#1e1e26',
-                        borderRadius:16,padding:'16px 18px',
-                        border:'1px solid '+(checked[idx]?'rgba(204,68,255,0.2)':'#2a2a36'),
-                        cursor:'pointer',transition:'all 0.2s',
-                        opacity:checked[idx]?0.6:1,
-                      }}>
+                      style={{background:checked[idx]?'rgba(204,68,255,0.04)':'#1e1e26',borderRadius:16,padding:'16px 18px',border:'1px solid '+(checked[idx]?'rgba(204,68,255,0.2)':'#2a2a36'),cursor:'pointer',transition:'all 0.2s',opacity:checked[idx]?0.6:1}}>
                       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
                         <div style={{display:'flex',gap:12,flex:1}}>
-                          <div style={{
-                            width:28,height:28,borderRadius:'50%',flexShrink:0,marginTop:2,
-                            background:checked[idx]?'#cc44ff':'#25252f',
-                            border:'2px solid '+(checked[idx]?'#cc44ff':'#333'),
-                            display:'flex',alignItems:'center',justifyContent:'center',
-                            fontSize:13,transition:'all 0.2s',
-                          }}>
+                          <div style={{width:28,height:28,borderRadius:'50%',flexShrink:0,marginTop:2,background:checked[idx]?'#cc44ff':'#25252f',border:'2px solid '+(checked[idx]?'#cc44ff':'#333'),display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,transition:'all 0.2s'}}>
                             {checked[idx]?'✓':''}
                           </div>
                           <div style={{flex:1}}>
-                            <div style={{fontSize:15,fontWeight:700,marginBottom:4,color:checked[idx]?'#555':'#cc44ff',textDecoration:checked[idx]?'line-through':'none'}}>
-                              {i+1}. {ex.name}
-                            </div>
+                            <div style={{fontSize:15,fontWeight:700,marginBottom:4,color:checked[idx]?'#555':'#cc44ff',textDecoration:checked[idx]?'line-through':'none'}}>{i+1}. {ex.name}</div>
                             <div style={{fontSize:12,color:'#555',marginBottom:4}}>{ex.muscle} · 休憩 {ex.restSec}秒</div>
                             <div style={{fontSize:12,color:'#cc44ff',lineHeight:1.5}}>🧍 {ex.why}</div>
                           </div>
@@ -546,9 +510,7 @@ export default function MenuPage() {
                         <div style={{textAlign:'right',flexShrink:0}}>
                           <div style={{fontSize:12,color:'#cc44ff',fontWeight:700,marginBottom:4}}>{ex.sets}セット</div>
                           <div style={{fontSize:14,fontWeight:800}}>{ex.reps}</div>
-                          {!shouldShowTut(ex.name)&&exBothSides&&(
-                            <div style={{fontSize:11,color:'#ffd60a',marginTop:2}}>片側{ex.durationSec||30}秒</div>
-                          )}
+                          {!shouldShowTut(ex.name)&&exBothSides&&<div style={{fontSize:11,color:'#ffd60a',marginTop:2}}>片側{ex.durationSec||30}秒</div>}
                         </div>
                       </div>
                     </div>
@@ -558,7 +520,6 @@ export default function MenuPage() {
             </div>
           )}
 
-          {/* アドバイス */}
           {menu.closingTip&&(
             <div style={{background:'rgba(57,255,20,0.06)',borderRadius:14,padding:'16px 18px',marginTop:20,border:'1px solid rgba(57,255,20,0.15)'}}>
               <div style={{fontSize:11,color:'#39ff14',fontWeight:700,marginBottom:6}}>💡 トレーニング後のアドバイス</div>
@@ -566,17 +527,9 @@ export default function MenuPage() {
             </div>
           )}
 
-          {/* CTA */}
           <div style={{marginTop:24}}>
             <button onClick={startTraining}
-              style={{
-                width:'100%',padding:'20px',
-                background:'linear-gradient(135deg,#39ff14,#00c8ff)',
-                color:'#000',border:'none',borderRadius:18,
-                fontSize:17,fontWeight:800,cursor:'pointer',
-                marginBottom:12,
-                boxShadow:'0 4px 20px rgba(57,255,20,0.2)',
-              }}>
+              style={{width:'100%',padding:'20px',background:'linear-gradient(135deg,#39ff14,#00c8ff)',color:'#000',border:'none',borderRadius:18,fontSize:17,fontWeight:800,cursor:'pointer',marginBottom:12,boxShadow:'0 4px 20px rgba(57,255,20,0.2)'}}>
               ▶ トレーニング開始
             </button>
 
@@ -589,15 +542,7 @@ export default function MenuPage() {
                 <div style={{height:'100%',width:`${allExercises.length>0?(Object.values(checked).filter(Boolean).length/allExercises.length)*100:0}%`,background:'#39ff14',transition:'width 0.3s'}}/>
               </div>
               <button onClick={completeTraining} disabled={!allChecked}
-                style={{
-                  width:'100%',padding:'14px',
-                  background:allChecked?'rgba(57,255,20,0.1)':'transparent',
-                  color:allChecked?'#39ff14':'#333',
-                  border:'1px solid '+(allChecked?'rgba(57,255,20,0.3)':'#2a2a36'),
-                  borderRadius:12,fontSize:14,fontWeight:700,
-                  cursor:allChecked?'pointer':'not-allowed',
-                  transition:'all 0.2s',
-                }}>
+                style={{width:'100%',padding:'14px',background:allChecked?'rgba(57,255,20,0.1)':'transparent',color:allChecked?'#39ff14':'#333',border:'1px solid '+(allChecked?'rgba(57,255,20,0.3)':'#2a2a36'),borderRadius:12,fontSize:14,fontWeight:700,cursor:allChecked?'pointer':'not-allowed',transition:'all 0.2s'}}>
                 {allChecked?'✅ 手動完了・EXP獲得':'全種目チェックで完了'}
               </button>
             </div>
