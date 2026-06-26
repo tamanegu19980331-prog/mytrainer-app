@@ -47,24 +47,6 @@ export default function OnboardingPage() {
 
   const isValid = profile.name && profile.gender && profile.height && profile.weight && profile.age
 
-  const AGE_GROUPS = [
-    {label:'10代', value:'15'},
-    {label:'20代', value:'25'},
-    {label:'30代', value:'35'},
-    {label:'40代', value:'45'},
-    {label:'50代以上', value:'55'},
-  ]
-
-  const getSelectedAge = () => {
-    const age = Number(profile.age)
-    if (age < 20) return '15'
-    if (age < 30) return '25'
-    if (age < 40) return '35'
-    if (age < 50) return '45'
-    if (age >= 50) return '55'
-    return ''
-  }
-
   return (
     <div style={{background:'#16161a',minHeight:'100vh',color:'#e8e8e8'}}>
       <div style={{maxWidth:480,margin:'0 auto',padding:'0 0 60px'}}>
@@ -93,10 +75,10 @@ export default function OnboardingPage() {
             <div style={{fontSize:12,color:'#888',fontWeight:600,marginBottom:10}}>ニックネーム</div>
             <input
               style={{
-                width:'100%', background:'#1e1e26',
+                width:'100%',background:'#1e1e26',
                 border:'1.5px solid '+(profile.name?'#39ff14':'#2a2a36'),
-                borderRadius:14, padding:'16px 18px',
-                color:'#e8e8e8', fontSize:16, outline:'none',
+                borderRadius:14,padding:'16px 18px',
+                color:'#e8e8e8',fontSize:16,outline:'none',
                 transition:'border 0.2s',
               }}
               placeholder="例：たろう"
@@ -115,9 +97,9 @@ export default function OnboardingPage() {
                     padding:'20px 16px',
                     background:profile.gender===g.v?'rgba(57,255,20,0.08)':'#1e1e26',
                     border:'1.5px solid '+(profile.gender===g.v?'#39ff14':'#2a2a36'),
-                    borderRadius:14, color:profile.gender===g.v?'#39ff14':'#888',
-                    fontSize:15, fontWeight:700, cursor:'pointer',
-                    display:'flex', flexDirection:'column', alignItems:'center', gap:8,
+                    borderRadius:14,color:profile.gender===g.v?'#39ff14':'#888',
+                    fontSize:15,fontWeight:700,cursor:'pointer',
+                    display:'flex',flexDirection:'column',alignItems:'center',gap:8,
                     transition:'all 0.2s',
                   }}>
                   <span style={{fontSize:28}}>{g.emoji}</span>
@@ -127,23 +109,28 @@ export default function OnboardingPage() {
             </div>
           </div>
 
-          {/* 年代 */}
+          {/* 年齢 */}
           <div style={{marginBottom:24}}>
-            <div style={{fontSize:12,color:'#888',fontWeight:600,marginBottom:10}}>年代</div>
-            <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-              {AGE_GROUPS.map(a=>(
-                <button key={a.value} onClick={()=>setProfile(p=>({...p,age:a.value}))}
-                  style={{
-                    flex:1, minWidth:60, padding:'14px 8px',
-                    background:getSelectedAge()===a.value?'rgba(57,255,20,0.08)':'#1e1e26',
-                    border:'1.5px solid '+(getSelectedAge()===a.value?'#39ff14':'#2a2a36'),
-                    borderRadius:12, color:getSelectedAge()===a.value?'#39ff14':'#888',
-                    fontSize:13, fontWeight:700, cursor:'pointer',
-                    transition:'all 0.2s',
-                  }}>
-                  {a.label}
-                </button>
-              ))}
+            <div style={{fontSize:12,color:'#888',fontWeight:600,marginBottom:10}}>年齢</div>
+            <div style={{position:'relative'}}>
+              <input type="number"
+                style={{
+                  width:'100%',background:'#1e1e26',
+                  border:'1.5px solid '+(profile.age?'#39ff14':'#2a2a36'),
+                  borderRadius:14,padding:'16px 44px 16px 18px',
+                  color:'#e8e8e8',fontSize:18,fontWeight:700,
+                  outline:'none',transition:'border 0.2s',
+                }}
+                placeholder="例：27"
+                min="10" max="99"
+                value={profile.age}
+                onChange={e=>setProfile(p=>({...p,age:e.target.value}))}
+              />
+              <div style={{
+                position:'absolute',right:14,top:'50%',
+                transform:'translateY(-50%)',
+                fontSize:14,color:'#666',fontWeight:600,
+              }}>歳</div>
             </div>
           </div>
 
@@ -155,16 +142,16 @@ export default function OnboardingPage() {
                 {key:'height',label:'身長',unit:'cm',placeholder:'170'},
                 {key:'weight',label:'体重',unit:'kg',placeholder:'65'},
               ].map(item=>(
-                <div key={item.key} style={{position:'relative'}}>
+                <div key={item.key}>
                   <div style={{fontSize:11,color:'#666',marginBottom:6}}>{item.label}</div>
                   <div style={{position:'relative'}}>
                     <input type="number"
                       style={{
-                        width:'100%', background:'#1e1e26',
+                        width:'100%',background:'#1e1e26',
                         border:'1.5px solid '+((profile as any)[item.key]?'#39ff14':'#2a2a36'),
-                        borderRadius:14, padding:'16px 44px 16px 18px',
-                        color:'#e8e8e8', fontSize:18, fontWeight:700,
-                        outline:'none', transition:'border 0.2s',
+                        borderRadius:14,padding:'16px 44px 16px 18px',
+                        color:'#e8e8e8',fontSize:18,fontWeight:700,
+                        outline:'none',transition:'border 0.2s',
                       }}
                       placeholder={item.placeholder}
                       value={(profile as any)[item.key]}
@@ -182,8 +169,8 @@ export default function OnboardingPage() {
           {/* BMI */}
           {bmi&&(
             <div style={{
-              background:'#1e1e26', borderRadius:14, padding:'16px 18px',
-              marginBottom:24, border:'1px solid #2a2a36',
+              background:'#1e1e26',borderRadius:14,padding:'16px 18px',
+              marginBottom:24,border:'1px solid #2a2a36',
             }}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
                 <div>
@@ -204,11 +191,11 @@ export default function OnboardingPage() {
           {/* ボタン */}
           <button onClick={saveProfile} disabled={loading||!isValid}
             style={{
-              width:'100%', padding:'18px',
+              width:'100%',padding:'18px',
               background:isValid?'#39ff14':'#1e1e26',
               color:isValid?'#000':'#444',
-              border:'none', borderRadius:16,
-              fontSize:16, fontWeight:800,
+              border:'none',borderRadius:16,
+              fontSize:16,fontWeight:800,
               cursor:isValid?'pointer':'not-allowed',
               opacity:loading?0.7:1,
               transition:'all 0.2s',
