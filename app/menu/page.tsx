@@ -599,6 +599,45 @@ export default function MenuPage() {
               <div style={{fontSize:13,lineHeight:1.7,color:'#888'}}>{currentEx.why}</div>
             </div>
           )}
+
+          {/* タイマー中のやり方ボタン */}
+          {getExerciseTip(currentEx?.name||'')&&(()=>{
+            const tip = getExerciseTip(currentEx?.name||'')!
+            return (
+              <div style={{marginBottom:16}}>
+                <button onClick={()=>setExpandedTip(expandedTip==='timer'?null:'timer')}
+                  style={{
+                    width:'100%',padding:'12px',
+                    background:'rgba(0,200,255,0.08)',
+                    border:'1px solid rgba(0,200,255,0.3)',
+                    borderRadius:12,color:'#00c8ff',
+                    fontSize:13,fontWeight:700,cursor:'pointer',
+                  }}>
+                  {expandedTip==='timer'?'▲ やり方を閉じる':'📖 やり方を確認する'}
+                </button>
+                {expandedTip==='timer'&&(
+                  <div style={{marginTop:8,padding:'14px 16px',background:'#1e1e26',borderRadius:12,border:'1px solid #2a2a36'}}>
+                    <div style={{fontSize:11,color:'#39ff14',fontWeight:700,marginBottom:8}}>やり方</div>
+                    {tip.steps.map((s,si)=>(
+                      <div key={si} style={{fontSize:12,color:'#888',marginBottom:4,display:'flex',gap:8}}>
+                        <span style={{color:'#39ff14',flexShrink:0,fontWeight:700}}>{si+1}.</span>{s}
+                      </div>
+                    ))}
+                    <div style={{fontSize:11,color:'#ffd60a',fontWeight:700,marginTop:10,marginBottom:6}}>⚠️ ポイント</div>
+                    {tip.points.map((p,pi)=>(
+                      <div key={pi} style={{fontSize:12,color:'#888',marginBottom:4,display:'flex',gap:8}}>
+                        <span style={{color:'#ffd60a',flexShrink:0}}>・</span>{p}
+                      </div>
+                    ))}
+                    <a href={tip.youtube} target="_blank" rel="noopener noreferrer"
+                      style={{display:'block',marginTop:12,padding:'10px',background:'rgba(255,0,0,0.1)',border:'1px solid rgba(255,0,0,0.3)',borderRadius:10,color:'#ff4455',fontSize:12,fontWeight:700,textAlign:'center',textDecoration:'none'}}>
+                      ▶ YouTubeで動画を確認
+                    </a>
+                  </div>
+                )}
+              </div>
+            )
+          })()}
           <button onClick={()=>{clearInterval(intervalRef.current);setMode('view')}}
             style={{width:'100%',padding:'16px',background:'transparent',color:'#444',border:'1px solid #2a2a36',borderRadius:14,fontSize:13,cursor:'pointer'}}>
             中断する（EXPなし）
