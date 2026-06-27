@@ -23,6 +23,203 @@ function getLevel(exp: number) {
 
 const NO_TUT_KEYWORDS = ['プランク','キープ','ホールド','ストレッチ','ドローイン','ウォールシット','ジャンプ','ステップ','ハイニー','クラムシェル','レッグレイズ','バードドッグ','キャット','ウォーク','ジョグ','マーチ','タオル','チン']
 
+const EXERCISE_TIPS: Record<string, { steps: string[], points: string[], youtube: string }> = {
+  'スクワット': {
+    steps: ['足を肩幅に開いて立つ', 'つま先を少し外側に向ける', '膝がつま先の方向に曲がるように下げる', '太ももが床と平行になるまで下げる', 'ゆっくり元に戻す'],
+    points: ['膝が内側に入らないように注意', '背筋をまっすぐに保つ', 'かかとが浮かないように'],
+    youtube: 'https://www.youtube.com/results?search_query=スクワット+やり方+フォーム',
+  },
+  'ヒップリフト': {
+    steps: ['仰向けに寝て膝を曲げる', '足を腰幅に開く', 'お尻を締めながら持ち上げる', '肩から膝まで一直線にする', 'ゆっくり下ろす'],
+    points: ['腰を反りすぎない', 'お尻をしっかり締める', '上げた位置で1秒キープ'],
+    youtube: 'https://www.youtube.com/results?search_query=ヒップリフト+やり方+フォーム',
+  },
+  'プランク': {
+    steps: ['肘を肩の真下につく', 'つま先を立てて体を持ち上げる', '頭からかかとまで一直線にする', 'その姿勢をキープする'],
+    points: ['お尻が上がらないように', '腰が落ちないように', '呼吸を止めない'],
+    youtube: 'https://www.youtube.com/results?search_query=プランク+やり方+フォーム',
+  },
+  'デッドバッグ': {
+    steps: ['仰向けに寝て腕を天井に向ける', '膝を90度に曲げて持ち上げる', '対角線の腕と脚を同時に伸ばす', 'ゆっくり元に戻す', '反対側も同様に行う'],
+    points: ['腰が床から離れないように', '呼吸を整えながら行う', 'ゆっくり動作する'],
+    youtube: 'https://www.youtube.com/results?search_query=デッドバッグ+やり方+フォーム',
+  },
+  'バードドッグ': {
+    steps: ['四つん這いになる', '背中をまっすぐに保つ', '対角線の腕と脚を同時に伸ばす', '3秒キープしてゆっくり戻す'],
+    points: ['腰が回転しないように', '体幹を安定させる', '視線は床に向ける'],
+    youtube: 'https://www.youtube.com/results?search_query=バードドッグ+やり方+フォーム',
+  },
+  'ドローイン': {
+    steps: ['楽な姿勢で立つか座る', 'お腹をへこませるように力を入れる', 'その状態を10〜30秒キープ', 'ゆっくり緩める'],
+    points: ['息を止めない', '横隔膜を使って呼吸する', '毎日継続することが大切'],
+    youtube: 'https://www.youtube.com/results?search_query=ドローイン+やり方',
+  },
+  'チンタック': {
+    steps: ['背筋を伸ばして座るか立つ', '顎を引いて頭を後ろに引く', '5秒キープする', 'ゆっくり元に戻す'],
+    points: ['痛みを感じたら中止', '首を傾けない', '呼吸を止めない'],
+    youtube: 'https://www.youtube.com/results?search_query=チンタック+やり方',
+  },
+  'YTWL': {
+    steps: ['うつ伏せになる', 'Y字→T字→W字→L字の順に腕を動かす', '各ポジションで2秒キープ'],
+    points: ['肩甲骨を意識して動かす', '首に力を入れない', 'ゆっくり丁寧に行う'],
+    youtube: 'https://www.youtube.com/results?search_query=YTWL+肩甲骨+やり方',
+  },
+  'ランジ': {
+    steps: ['足を肩幅に開いて立つ', '片足を大きく前に踏み出す', '後ろの膝が床につくギリギリまで下げる', '前足で蹴り上げて元に戻す'],
+    points: ['前膝がつま先より前に出ないように', '上体をまっすぐに保つ', '体幹に力を入れる'],
+    youtube: 'https://www.youtube.com/results?search_query=ランジ+やり方+フォーム',
+  },
+  'ブルガリアンスクワット': {
+    steps: ['後ろの足をベンチや椅子に乗せる', '前足を大きく踏み出す', '後ろ膝を下げていく', '前足で蹴り上げて元に戻す'],
+    points: ['前膝がつま先より前に出ないように', '上体をまっすぐに保つ', 'バランスに注意'],
+    youtube: 'https://www.youtube.com/results?search_query=ブルガリアンスクワット+やり方',
+  },
+  'レッグレイズ': {
+    steps: ['仰向けに寝る', '両脚をまっすぐ伸ばす', '床と垂直になるまで持ち上げる', 'ゆっくり下ろす（床につけない）'],
+    points: ['腰が浮かないように', '下ろす時もゆっくり', '呼吸を止めない'],
+    youtube: 'https://www.youtube.com/results?search_query=レッグレイズ+やり方+フォーム',
+  },
+  'クランチ': {
+    steps: ['仰向けに寝て膝を曲げる', '手を頭の後ろか胸の前に置く', '肩甲骨が浮くまで上体を起こす', 'ゆっくり元に戻す'],
+    points: ['首に力を入れない', '反動を使わない', 'お腹を意識して動かす'],
+    youtube: 'https://www.youtube.com/results?search_query=クランチ+やり方+フォーム',
+  },
+  'マウンテンクライマー': {
+    steps: ['腕立て伏せの姿勢になる', '片膝を胸に引きつける', '素早く左右交互に行う'],
+    points: ['お尻が上がらないように', '体幹を安定させる', 'リズムよく行う'],
+    youtube: 'https://www.youtube.com/results?search_query=マウンテンクライマー+やり方',
+  },
+  '腕立て': {
+    steps: ['手を肩幅より少し広めにつく', '体をまっすぐに保つ', '胸が床につくまで下げる', '腕を伸ばして元に戻す'],
+    points: ['お尻が上がらないように', '肘は45度程度外に向ける', '体幹に力を入れる'],
+    youtube: 'https://www.youtube.com/results?search_query=腕立て伏せ+やり方+フォーム',
+  },
+  'プッシュアップ': {
+    steps: ['手を肩幅より少し広めにつく', '体をまっすぐに保つ', '胸が床につくまで下げる', '腕を伸ばして元に戻す'],
+    points: ['お尻が上がらないように', '肘は45度程度外に向ける', '体幹に力を入れる'],
+    youtube: 'https://www.youtube.com/results?search_query=腕立て伏せ+やり方+フォーム',
+  },
+  'スーパーマン': {
+    steps: ['うつ伏せに寝る', '両手を前に伸ばす', '腕と脚を同時に持ち上げる', '3秒キープしてゆっくり下ろす'],
+    points: ['首に力を入れない', '無理に高く上げない', '背中全体を意識する'],
+    youtube: 'https://www.youtube.com/results?search_query=スーパーマン+背筋+やり方',
+  },
+  'サイドプランク': {
+    steps: ['横向きに寝て肘をつく', '体を持ち上げて一直線にする', '腰が落ちないようにキープする'],
+    points: ['肩に力が入りすぎないように', '体が前後に傾かないように', '呼吸を止めない'],
+    youtube: 'https://www.youtube.com/results?search_query=サイドプランク+やり方+フォーム',
+  },
+  'ヒップアブダクション': {
+    steps: ['横向きに寝る', '上側の脚をまっすぐ伸ばす', '脚を45度程度持ち上げる', 'ゆっくり下ろす'],
+    points: ['体が前後に傾かないように', '股関節を意識する', 'ゆっくり動作する'],
+    youtube: 'https://www.youtube.com/results?search_query=ヒップアブダクション+やり方',
+  },
+  'カーフレイズ': {
+    steps: ['足を腰幅に開いて立つ', 'かかとをゆっくり持ち上げる', '一番上で1秒キープ', 'ゆっくり下ろす'],
+    points: ['反動を使わない', 'バランスを崩さないように', 'ふくらはぎを意識する'],
+    youtube: 'https://www.youtube.com/results?search_query=カーフレイズ+やり方',
+  },
+  'ネックストレッチ': {
+    steps: ['背筋を伸ばして座る', '頭をゆっくり横に傾ける', '15〜30秒キープする', '反対側も同様に行う'],
+    points: ['痛みを感じたら中止', '肩が上がらないように', 'ゆっくり丁寧に行う'],
+    youtube: 'https://www.youtube.com/results?search_query=ネックストレッチ+やり方',
+  },
+  '胸筋ストレッチ': {
+    steps: ['壁や柱に腕をつける', '体を前に向けてひねる', '胸が伸びる感覚を確認する', '15〜30秒キープする'],
+    points: ['痛みを感じたら中止', '呼吸を止めない', 'ゆっくり伸ばす'],
+    youtube: 'https://www.youtube.com/results?search_query=胸筋ストレッチ+やり方',
+  },
+  'ハムストリングス': {
+    steps: ['床に座って脚を伸ばす', '背筋を伸ばしたまま前に倒れる', '太ももの裏が伸びる感覚を確認', '20〜30秒キープする'],
+    points: ['膝を曲げない', '反動をつけない', '痛みを感じたら中止'],
+    youtube: 'https://www.youtube.com/results?search_query=ハムストリングスストレッチ+やり方',
+  },
+  'ハーフニーリング': {
+    steps: ['片膝をついてひざまずく', '後ろ脚の股関節を前に押し出す', '腸腰筋が伸びる感覚を確認', '20〜30秒キープする', '反対側も同様に行う'],
+    points: ['上体をまっすぐに保つ', '腰を反らさない', '痛みを感じたら中止'],
+    youtube: 'https://www.youtube.com/results?search_query=ハーフニーリングストレッチ+やり方',
+  },
+  'スモウスクワット': {
+    steps: ['足を肩幅の1.5倍に開く', 'つま先を45度外に向ける', '膝をつま先方向に曲げながら下げる', '太ももが床と平行になるまで下げる', 'ゆっくり元に戻す'],
+    points: ['膝が内側に入らないように', '背筋をまっすぐに保つ', '内ももを意識する'],
+    youtube: 'https://www.youtube.com/results?search_query=スモウスクワット+やり方',
+  },
+  'ウォールシット': {
+    steps: ['壁に背中をつける', '膝を90度に曲げてスクワットの姿勢をとる', 'その姿勢をキープする'],
+    points: ['膝がつま先より前に出ないように', '背中を壁から離さない', '呼吸を止めない'],
+    youtube: 'https://www.youtube.com/results?search_query=ウォールシット+やり方',
+  },
+  'タオル': {
+    steps: ['タオルを足の指にかける', '指でタオルをつかむように力を入れる', '10〜15回繰り返す'],
+    points: ['痛みを感じたら中止', '足の指全体を使う', '毎日継続することが大切'],
+    youtube: 'https://www.youtube.com/results?search_query=足指トレーニング+タオル+やり方',
+  },
+  'ウォールエンジェル': {
+    steps: ['壁に背中をつけて立つ', '両腕を壁につけたままバンザイする', '腕が壁から離れないようにゆっくり上げ下げする'],
+    points: ['腰が壁から離れないように', '肩甲骨を意識して動かす', '痛みを感じたら中止'],
+    youtube: 'https://www.youtube.com/results?search_query=ウォールエンジェル+やり方',
+  },
+  '頸部後面ストレッチ': {
+    steps: ['背筋を伸ばして座る', '両手を頭の後ろに置く', '頭をゆっくり前に倒す', '首の後ろが伸びる感覚を確認', '20〜30秒キープする'],
+    points: ['痛みを感じたら中止', '呼吸を止めない', 'ゆっくり丁寧に行う'],
+    youtube: 'https://www.youtube.com/results?search_query=頸部ストレッチ+やり方',
+  },
+  '肩甲骨ほぐし': {
+    steps: ['背筋を伸ばして座る', '両腕を前に伸ばして肩甲骨を広げる', '次に両肘を引いて肩甲骨を寄せる', '10〜15回繰り返す'],
+    points: ['肩甲骨の動きを意識する', '首に力を入れない', 'ゆっくり丁寧に行う'],
+    youtube: 'https://www.youtube.com/results?search_query=肩甲骨ほぐし+やり方',
+  },
+  'ストレッチ': {
+    steps: ['対象の筋肉をゆっくり伸ばす', '痛みのない範囲で伸ばす', '20〜30秒キープする', 'ゆっくり元に戻す'],
+    points: ['反動をつけない', '呼吸を止めない', '痛みを感じたら中止'],
+    youtube: 'https://www.youtube.com/results?search_query=ストレッチ+やり方',
+  },
+  '内転筋': {
+    steps: ['足を腰幅に開いて立つ', '内ももを意識して締める', '10秒キープする', 'ゆっくり緩める'],
+    points: ['お尻に力が入りすぎないように', '内ももを意識する', '呼吸を止めない'],
+    youtube: 'https://www.youtube.com/results?search_query=内転筋トレーニング+やり方',
+  },
+}
+
+function getExerciseTip(name: string) {
+  // 完全一致優先
+  for (const key of Object.keys(EXERCISE_TIPS)) {
+    if (name.includes(key)) return EXERCISE_TIPS[key]
+  }
+  // キーワード部分一致
+  const keywords: Record<string, string> = {
+    'スクワット': 'スクワット',
+    'プランク': 'プランク',
+    'プッシュ': '腕立て',
+    'ヒップ': 'ヒップリフト',
+    'ランジ': 'ランジ',
+    'ストレッチ': 'ストレッチ',
+    'ほぐし': 'ストレッチ',
+    'クランチ': 'クランチ',
+    '腹筋': 'クランチ',
+    'バードドッグ': 'バードドッグ',
+    'デッドバッグ': 'デッドバッグ',
+    'ドローイン': 'ドローイン',
+    'サイドプランク': 'サイドプランク',
+    'レッグレイズ': 'レッグレイズ',
+    'ヒップアブダクション': 'ヒップアブダクション',
+    'カーフレイズ': 'カーフレイズ',
+    'スーパーマン': 'スーパーマン',
+    'マウンテンクライマー': 'マウンテンクライマー',
+    'ウォールエンジェル': 'ウォールエンジェル',
+    'YTWL': 'YTWL',
+    'チンタック': 'チンタック',
+    '頸部': '頸部後面ストレッチ',
+    '肩甲骨': '肩甲骨ほぐし',
+  }
+  for (const [keyword, tipKey] of Object.entries(keywords)) {
+    if (name.includes(keyword) && EXERCISE_TIPS[tipKey]) {
+      return EXERCISE_TIPS[tipKey]
+    }
+  }
+  return null
+}
+
 const shouldShowTut = (name: string) => !NO_TUT_KEYWORDS.some(k => name.includes(k))
 
 const isBothSidesReps = (reps: string) =>
@@ -58,6 +255,7 @@ export default function MenuPage() {
   const [phase, setPhase] = useState<'countdown'|'exercise'|'rest'|'done'>('countdown')
   const [timer, setTimer] = useState(5)
   const [checked, setChecked] = useState<Record<string, boolean>>({})
+  const [expandedTip, setExpandedTip] = useState<string|null>(null)
   const [completed, setCompleted] = useState(false)
   const [expGained, setExpGained] = useState(0)
   const [levelUp, setLevelUp] = useState<any>(null)
@@ -86,8 +284,6 @@ export default function MenuPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/auth'); return }
-
-      // 当日すでにメニューがあればDBから読み込む
       const today = new Date().toISOString().slice(0, 10)
       const { data: todayLog } = await supabase
         .from('training_logs').select('*')
@@ -101,11 +297,8 @@ export default function MenuPage() {
         setStatus('done')
         return
       }
-
       const diag = JSON.parse(localStorage.getItem('mt_diag') || '{}')
       const posture = JSON.parse(localStorage.getItem('mt_posture') || '[]')
-
-      // goalはlocalStorageになければDBから取得
       let goal = localStorage.getItem('mt_goal') || ''
       if (!goal) {
         const { data: diagLog } = await supabase
@@ -115,8 +308,6 @@ export default function MenuPage() {
           .limit(1).single()
         if (diagLog?.goal) goal = diagLog.goal
       }
-
-      // fitnessはlocalStorageになければDBから取得
       let fitness = JSON.parse(localStorage.getItem('mt_fitness') || '{}')
       if (!fitness || Object.keys(fitness).length === 0) {
         const { data: fitnessLog } = await supabase
@@ -361,7 +552,6 @@ export default function MenuPage() {
               <div style={{height:'100%',background:'linear-gradient(to right,#39ff14,#00c8ff)',borderRadius:8,transition:'width 0.3s',width:`${((currentExIdx*3+currentSet-1)/(allExercises.length*3))*100}%`}}/>
             </div>
           </div>
-
           <div style={{background:'#1e1e26',borderRadius:24,padding:'32px 24px',border:'1px solid #2a2a36',marginBottom:16,textAlign:'center'}}>
             {phase==='countdown'&&(
               <>
@@ -403,14 +593,12 @@ export default function MenuPage() {
               </>
             )}
           </div>
-
           {currentEx?.why&&(
             <div style={{background:'rgba(0,200,255,0.06)',borderRadius:14,padding:'14px 18px',border:'1px solid rgba(0,200,255,0.15)',marginBottom:16}}>
               <div style={{fontSize:11,color:'#00c8ff',fontWeight:700,marginBottom:4}}>📌 トレーナーのポイント</div>
               <div style={{fontSize:13,lineHeight:1.7,color:'#888'}}>{currentEx.why}</div>
             </div>
           )}
-
           <button onClick={()=>{clearInterval(intervalRef.current);setMode('view')}}
             style={{width:'100%',padding:'16px',background:'transparent',color:'#444',border:'1px solid #2a2a36',borderRadius:14,fontSize:13,cursor:'pointer'}}>
             中断する（EXPなし）
@@ -453,6 +641,7 @@ export default function MenuPage() {
                 const tutSec = calcTutSec(ex,menu?.tutTempo||'')
                 const exBothSides = isBothSidesReps(ex.reps||'')
                 const exShowTut = shouldShowTut(ex.name)
+                const tip = getExerciseTip(ex.name)
                 return (
                   <div key={i} onClick={()=>toggleCheck(String(idx))}
                     style={{background:checked[idx]?'rgba(57,255,20,0.04)':'#1e1e26',borderRadius:16,padding:'16px 18px',border:'1px solid '+(checked[idx]?'rgba(57,255,20,0.2)':'#2a2a36'),cursor:'pointer',transition:'all 0.2s',opacity:checked[idx]?0.6:1}}>
@@ -466,6 +655,33 @@ export default function MenuPage() {
                           <div style={{fontSize:12,color:'#555',marginBottom:4}}>{ex.muscle} · 休憩 {ex.restSec}秒</div>
                           <div style={{fontSize:12,color:'#00c8ff',lineHeight:1.5}}>📌 {ex.why}</div>
                           {exShowTut&&menu.tutTempo&&<div style={{fontSize:11,color:'#ffd60a',marginTop:4}}>⏱ {menu.tutTempo}</div>}
+                          {tip&&(
+                            <button onClick={e=>{e.stopPropagation();setExpandedTip(expandedTip===`n${i}`?null:`n${i}`)}}
+                              style={{marginTop:6,padding:'4px 10px',background:'rgba(0,200,255,0.1)',border:'1px solid rgba(0,200,255,0.3)',borderRadius:8,color:'#00c8ff',fontSize:11,fontWeight:700,cursor:'pointer'}}>
+                              {expandedTip===`n${i}`?'▲ 閉じる':'📖 やり方'}
+                            </button>
+                          )}
+                          {expandedTip===`n${i}`&&tip&&(
+                            <div style={{marginTop:8,padding:'10px 12px',background:'#25252f',borderRadius:10,border:'1px solid #2a2a36'}}>
+                              <div style={{fontSize:11,color:'#39ff14',fontWeight:700,marginBottom:6}}>やり方</div>
+                              {tip.steps.map((s,si)=>(
+                                <div key={si} style={{fontSize:11,color:'#888',marginBottom:3,display:'flex',gap:6}}>
+                                  <span style={{color:'#39ff14',flexShrink:0}}>{si+1}.</span>{s}
+                                </div>
+                              ))}
+                              <div style={{fontSize:11,color:'#ffd60a',fontWeight:700,marginTop:8,marginBottom:4}}>⚠️ ポイント</div>
+                              {tip.points.map((p,pi)=>(
+                                <div key={pi} style={{fontSize:11,color:'#888',marginBottom:3,display:'flex',gap:6}}>
+                                  <span style={{color:'#ffd60a',flexShrink:0}}>・</span>{p}
+                                </div>
+                              ))}
+                              <a href={tip.youtube} target="_blank" rel="noopener noreferrer"
+                                onClick={e=>e.stopPropagation()}
+                                style={{display:'block',marginTop:10,padding:'8px',background:'rgba(255,0,0,0.1)',border:'1px solid rgba(255,0,0,0.3)',borderRadius:8,color:'#ff4455',fontSize:11,fontWeight:700,textAlign:'center',textDecoration:'none'}}>
+                                ▶ YouTubeで動画を確認
+                              </a>
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div style={{textAlign:'right',flexShrink:0}}>
@@ -493,6 +709,7 @@ export default function MenuPage() {
                   const idx = exerciseIndex++
                   const exBothSides = isBothSidesReps(ex.reps||'')
                   const tutSec = calcTutSec(ex,menu?.tutTempo||'')
+                  const tip = getExerciseTip(ex.name)
                   return (
                     <div key={i} onClick={()=>toggleCheck(String(idx))}
                       style={{background:checked[idx]?'rgba(204,68,255,0.04)':'#1e1e26',borderRadius:16,padding:'16px 18px',border:'1px solid '+(checked[idx]?'rgba(204,68,255,0.2)':'#2a2a36'),cursor:'pointer',transition:'all 0.2s',opacity:checked[idx]?0.6:1}}>
@@ -505,6 +722,33 @@ export default function MenuPage() {
                             <div style={{fontSize:15,fontWeight:700,marginBottom:4,color:checked[idx]?'#555':'#cc44ff',textDecoration:checked[idx]?'line-through':'none'}}>{i+1}. {ex.name}</div>
                             <div style={{fontSize:12,color:'#555',marginBottom:4}}>{ex.muscle} · 休憩 {ex.restSec}秒</div>
                             <div style={{fontSize:12,color:'#cc44ff',lineHeight:1.5}}>🧍 {ex.why}</div>
+                            {tip&&(
+                              <button onClick={e=>{e.stopPropagation();setExpandedTip(expandedTip===`p${i}`?null:`p${i}`)}}
+                                style={{marginTop:6,padding:'4px 10px',background:'rgba(204,68,255,0.1)',border:'1px solid rgba(204,68,255,0.3)',borderRadius:8,color:'#cc44ff',fontSize:11,fontWeight:700,cursor:'pointer'}}>
+                                {expandedTip===`p${i}`?'▲ 閉じる':'📖 やり方'}
+                              </button>
+                            )}
+                            {expandedTip===`p${i}`&&tip&&(
+                              <div style={{marginTop:8,padding:'10px 12px',background:'#25252f',borderRadius:10,border:'1px solid #2a2a36'}}>
+                                <div style={{fontSize:11,color:'#cc44ff',fontWeight:700,marginBottom:6}}>やり方</div>
+                                {tip.steps.map((s,si)=>(
+                                  <div key={si} style={{fontSize:11,color:'#888',marginBottom:3,display:'flex',gap:6}}>
+                                    <span style={{color:'#cc44ff',flexShrink:0}}>{si+1}.</span>{s}
+                                  </div>
+                                ))}
+                                <div style={{fontSize:11,color:'#ffd60a',fontWeight:700,marginTop:8,marginBottom:4}}>⚠️ ポイント</div>
+                                {tip.points.map((p,pi)=>(
+                                  <div key={pi} style={{fontSize:11,color:'#888',marginBottom:3,display:'flex',gap:6}}>
+                                    <span style={{color:'#ffd60a',flexShrink:0}}>・</span>{p}
+                                  </div>
+                                ))}
+                                <a href={tip.youtube} target="_blank" rel="noopener noreferrer"
+                                  onClick={e=>e.stopPropagation()}
+                                  style={{display:'block',marginTop:10,padding:'8px',background:'rgba(255,0,0,0.1)',border:'1px solid rgba(255,0,0,0.3)',borderRadius:8,color:'#ff4455',fontSize:11,fontWeight:700,textAlign:'center',textDecoration:'none'}}>
+                                  ▶ YouTubeで動画を確認
+                                </a>
+                              </div>
+                            )}
                           </div>
                         </div>
                         <div style={{textAlign:'right',flexShrink:0}}>
@@ -532,7 +776,6 @@ export default function MenuPage() {
               style={{width:'100%',padding:'20px',background:'linear-gradient(135deg,#39ff14,#00c8ff)',color:'#000',border:'none',borderRadius:18,fontSize:17,fontWeight:800,cursor:'pointer',marginBottom:12,boxShadow:'0 4px 20px rgba(57,255,20,0.2)'}}>
               ▶ トレーニング開始
             </button>
-
             <div style={{background:'#1e1e26',borderRadius:16,padding:'16px 18px',marginBottom:10}}>
               <div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'#555',marginBottom:8}}>
                 <span>進捗</span>
@@ -546,12 +789,10 @@ export default function MenuPage() {
                 {allChecked?'✅ 手動完了・EXP獲得':'全種目チェックで完了'}
               </button>
             </div>
-
             <button onClick={()=>router.push('/dashboard')}
               style={{width:'100%',padding:'16px',background:'transparent',color:'#555',border:'1px solid #2a2a36',borderRadius:14,fontSize:13,cursor:'pointer',marginBottom:10}}>
               後でやる → ダッシュボード
             </button>
-
             <button onClick={generateMenu}
               style={{width:'100%',padding:'16px',background:'transparent',color:'#39ff14',border:'1px solid rgba(57,255,20,0.3)',borderRadius:14,fontSize:13,fontWeight:700,cursor:'pointer'}}>
               🔄 メニューを再生成
