@@ -2,8 +2,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { initAudio, playCountdown, playCountdownLast, playStart, playFinish, playWarning, playNextSet } from '@/lib/sounds'
-
+import { initAudio, playCountdown, playCountdownLast, playStart, playFinish, playWarning } from '@/lib/sounds'
+import dynamic from 'next/dynamic'
+const FitnessModel = dynamic(() => import('../components/FitnessModel'), { ssr: false })
 const TESTS = [
   {
     id: 'pushup', name: '腕立て伏せ', emoji: '💪', color: '#39ff14',
@@ -165,11 +166,6 @@ export default function FitnessTestPage() {
         total_score: Object.values(results).reduce((s, r) => s + (r.level?.score || 0), 0),
         age_group: ageGroup,
       })
-      await supabase.from('training_logs').insert({
-        user_id: user.id, menu_name: '体力テスト',
-        menu_data: { results, ageGroup },
-        user_type: '体力テスト実施', completed: true,
-      })
       router.push('/menu')
     } catch(e) { console.error(e) }
     finally { setSaving(false) }
@@ -196,11 +192,7 @@ export default function FitnessTestPage() {
           </div>
           <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:32}}>
             {TESTS.map((t)=>(
-              <div key={t.id} style={{
-                background:'#1e1e26',borderRadius:16,padding:'18px 20px',
-                border:'1px solid #2a2a36',
-                display:'flex',alignItems:'center',gap:14,
-              }}>
+              <div key={t.id} style={{background:'#1e1e26',borderRadius:16,padding:'18px 20px',border:'1px solid #2a2a36',display:'flex',alignItems:'center',gap:14}}>
                 <div style={{width:52,height:52,borderRadius:14,background:'#25252f',display:'flex',alignItems:'center',justifyContent:'center',fontSize:26,flexShrink:0}}>
                   {t.emoji}
                 </div>
@@ -247,7 +239,9 @@ export default function FitnessTestPage() {
               <div style={{fontSize:22,fontWeight:800,color:currentTest.color,marginBottom:4}}>{currentTest.name}</div>
               <div style={{fontSize:13,color:'#555',lineHeight:1.6}}>{currentTest.instruction}</div>
             </div>
-
+            {currentTest.id === 'pushup' && (
+              <FitnessModel animation="pushup" height={220} />
+            )}
             {phase==='ready'&&(
               <div style={{textAlign:'center'}}>
                 <div style={{background:'#25252f',borderRadius:14,padding:'16px',marginBottom:20}}>
