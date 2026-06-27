@@ -179,6 +179,61 @@ const EXERCISE_TIPS: Record<string, { steps: string[], points: string[], youtube
     points: ['お尻に力が入りすぎないように', '内ももを意識する', '呼吸を止めない'],
     youtube: 'https://www.youtube.com/results?search_query=内転筋トレーニング+やり方',
   },
+  'バーピー': {
+    steps: ['立った状態から手を床につく', '足を後ろに引いてプランクの姿勢になる', '腕立て伏せを1回行う', '足を手の横に引き寄せる', '勢いよくジャンプして両手を上げる'],
+    points: ['着地は膝を曲げてやわらかく', 'テンポよくリズミカルに行う', '体幹を常に締めておく'],
+    youtube: 'https://www.youtube.com/results?search_query=バーピー+やり方+フォーム',
+  },
+  'バイシクルクランチ': {
+    steps: ['仰向けに寝て手を頭の後ろに置く', '膝を90度に曲げて持ち上げる', '右肘と左膝を近づけながら上体をひねる', '左右交互にリズムよく行う'],
+    points: ['首に力を入れない', 'ゆっくり丁寧に行う方が効果的', 'お腹を常に意識する'],
+    youtube: 'https://www.youtube.com/results?search_query=バイシクルクランチ+やり方+フォーム',
+  },
+  'ダイヤモンドプッシュアップ': {
+    steps: ['手を胸の前でダイヤモンド形に置く', '体をまっすぐに保つ', '胸が手につくまで下げる', '腕を伸ばして元に戻す'],
+    points: ['肘が外に開かないように', '体幹を締めておく', '最初はゆっくり行う'],
+    youtube: 'https://www.youtube.com/results?search_query=ダイヤモンドプッシュアップ+やり方',
+  },
+  'パイクプッシュアップ': {
+    steps: ['お尻を高く上げて逆V字の姿勢になる', '肘を曲げて頭を床に近づける', '腕を伸ばして元に戻す'],
+    points: ['お尻が下がらないように', '肩を意識して動かす', '首に負担をかけない'],
+    youtube: 'https://www.youtube.com/results?search_query=パイクプッシュアップ+やり方',
+  },
+  'シングルレッグスクワット': {
+    steps: ['片足で立つ', '軸足の膝を曲げてゆっくり下げる', '太ももが床と平行になるまで下げる', 'ゆっくり元に戻す'],
+    points: ['膝が内側に入らないように', 'バランスを崩さないよう体幹を締める', '最初は浅くてOK'],
+    youtube: 'https://www.youtube.com/results?search_query=シングルレッグスクワット+やり方',
+  },
+  'リバースプッシュアップ': {
+    steps: ['椅子や床に手をついて後ろ向きに座る', '膝を90度に曲げる', '肘を曲げてお尻を下げる', '腕を伸ばして元に戻す'],
+    points: ['肘が外に開かないように', '肩に力が入りすぎないように', 'ゆっくり丁寧に行う'],
+    youtube: 'https://www.youtube.com/results?search_query=リバースプッシュアップ+やり方',
+  },
+  'アームサークル': {
+    steps: ['足を肩幅に開いて立つ', '両腕を横に広げる', '小さな円から大きな円へと回す', '前回し・後ろ回しを各20回行う'],
+    points: ['肩をしっかり回す', '背筋を伸ばして行う', '痛みを感じたら中止'],
+    youtube: 'https://www.youtube.com/results?search_query=アームサークル+肩甲骨+やり方',
+  },
+  'ジャンプスクワット': {
+    steps: ['足を肩幅に開いて立つ', 'スクワットの姿勢まで下げる', '勢いよくジャンプする', '膝を曲げてやわらかく着地する'],
+    points: ['着地時に膝が内側に入らないように', '着地音を小さくする', '腰を痛めないよう無理しない'],
+    youtube: 'https://www.youtube.com/results?search_query=ジャンプスクワット+やり方+フォーム',
+  },
+  'その場ジョギング': {
+    steps: ['その場で軽くジョギングする', '膝を少し高めに上げる', 'リズムよく腕を振る', '呼吸を整えながら続ける'],
+    points: ['かかとから着地しない', 'つま先で軽く着地する', '無理のないペースで行う'],
+    youtube: 'https://www.youtube.com/results?search_query=その場ジョギング+やり方',
+  },
+  'インターバル': {
+    steps: ['高強度の運動を20〜40秒行う', '10〜20秒休憩する', 'これを繰り返す'],
+    points: ['呼吸を整えながら行う', '無理しすぎない', '体調に合わせてペースを調整'],
+    youtube: 'https://www.youtube.com/results?search_query=インターバルトレーニング+やり方',
+  },
+  'バックエクステンション': {
+    steps: ['うつ伏せに寝て両手を頭の後ろか前に伸ばす', '上体と脚を同時または片方ずつ持ち上げる', '背中が伸びる感覚を確認する', '3秒キープしてゆっくり下ろす'],
+    points: ['首に力を入れない', '無理に高く上げない', '腰を痛めないようゆっくり行う'],
+    youtube: 'https://www.youtube.com/results?search_query=バックエクステンション+やり方+フォーム',
+  },
 }
 
 function getExerciseTip(name: string) {
@@ -188,6 +243,21 @@ function getExerciseTip(name: string) {
   }
   // キーワード部分一致
   const keywords: Record<string, string> = {
+    'バックエクステンション': 'バックエクステンション',
+    'バック': 'バックエクステンション',
+    'バーピー': 'バーピー',
+    'バイシクル': 'バイシクルクランチ',
+    'ダイヤモンド': 'ダイヤモンドプッシュアップ',
+    'パイク': 'パイクプッシュアップ',
+    'シングルレッグ': 'シングルレッグスクワット',
+    'リバース': 'リバースプッシュアップ',
+    'アームサークル': 'アームサークル',
+    'ジャンプスクワット': 'ジャンプスクワット',
+    'その場': 'その場ジョギング',
+    'ジョギング': 'その場ジョギング',
+    'インターバル': 'インターバル',
+    '膝つき': '腕立て',
+    'ワイドスクワット': 'スクワット',
     'スクワット': 'スクワット',
     'プランク': 'プランク',
     'プッシュ': '腕立て',
@@ -832,10 +902,7 @@ export default function MenuPage() {
               style={{width:'100%',padding:'16px',background:'transparent',color:'#555',border:'1px solid #2a2a36',borderRadius:14,fontSize:13,cursor:'pointer',marginBottom:10}}>
               後でやる → ダッシュボード
             </button>
-            <button onClick={generateMenu}
-              style={{width:'100%',padding:'16px',background:'transparent',color:'#39ff14',border:'1px solid rgba(57,255,20,0.3)',borderRadius:14,fontSize:13,fontWeight:700,cursor:'pointer'}}>
-              🔄 メニューを再生成
-            </button>
+            
           </div>
         </div>
       </div>

@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 
 export default function AdminPage() {
   const [loading, setLoading] = useState(true)
@@ -100,16 +101,37 @@ export default function AdminPage() {
     fontSize:12, outline:'none', marginBottom:8
   }
 
+  const POSTURE_LABELS: Record<string, string> = {
+    anterior_tilt: '骨盤前傾',
+    posterior_tilt: '骨盤後傾',
+    rounded_shoulders: '巻き肩',
+    kyphosis: '猫背',
+    straight_neck: 'ストレートネック',
+    elevated_shoulders: '肩の挙上',
+    o_legs: 'O脚',
+    x_legs: 'X脚',
+    xo_legs: 'XO脚',
+  }
+
+  const PIE_COLORS = ['#39ff14','#00c8ff','#ffd60a','#ff6b9d','#cc44ff','#ff8c00','#ff4455']
+
   // KPI計算
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
   const activeUsers = new Set(logs.filter(l => new Date(l.created_at) > sevenDaysAgo).map(l => l.user_id)).size
   const totalUsers = users.filter(u => !u.is_admin).length
   const retentionRate = totalUsers > 0 ? Math.round((activeUsers / totalUsers) * 100) : 0
 
-  // 人気メニューランキング
+  // 人気メニューランキング（体力テスト除外・ユーザーごとの初回メニューのみ）
+  const firstMenuByUser: Record<string, string> = {}
+  const adminIds = new Set(users.filter(u => u.is_admin).map(u => u.id))
+  ;[...logs].reverse().forEach(l => {
+    if (l.menu_name && l.user_id && l.menu_name !== '体力テスト' && !adminIds.has(l.user_id)) {
+      firstMenuByUser[l.user_id] = l.menu_name
+    }
+  })
   const menuCount: Record<string, number> = {}
-  logs.forEach(l => {
-    if (l.menu_name) menuCount[l.menu_name] = (menuCount[l.menu_name] || 0) + 1
+  Object.values(firstMenuByUser).forEach(menuName => {
+    menuCount[menuName] = (menuCount[menuName] || 0) + 1
   })
   const menuRanking = Object.entries(menuCount).sort((a, b) => b[1] - a[1]).slice(0, 5)
 
@@ -118,16 +140,42 @@ export default function AdminPage() {
   users.filter(u => !u.is_admin && u.user_type).forEach(u => {
     typeCount[u.user_type] = (typeCount[u.user_type] || 0) + 1
   })
-  const typeRanking = Object.entries(typeCount).sort((a, b) => b[1] - a[1]).slice(0, 5)
+  const typeRanking = Object.entries(typeCount).sort((a,b) => b[1]-a[1]).slice(0,5)
+  const typePieData = typeRanking.map(([name, value]) => ({ name, value }))
 
-  // 姿勢タイプ分布
-  const postureCount: Record<string, number> = {}
+  // 姿勢タイプ分布（ユーザーごとに最新データのみ集計）
+  const latestPostureByUser: Record<string, string[]> = {}
   diagLogs.forEach(d => {
-    if (d.posture) d.posture.forEach((p: string) => {
-      postureCount[p] = (postureCount[p] || 0) + 1
+    if (d.posture && d.user_id && !latestPostureByUser[d.user_id]) {
+      latestPostureByUser[d.user_id] = d.posture
+    }
+  })
+  const postureUserCount: Record<string, Set<string>> = {}
+  Object.entries(latestPostureByUser).forEach(([userId, postures]) => {
+    postures.forEach((p: string) => {
+      if (!postureUserCount[p]) postureUserCount[p] = new Set()
+      postureUserCount[p].add(userId)
     })
   })
+  const postureCount: Record<string, number> = {}
+  Object.entries(postureUserCount).forEach(([k, v]) => { postureCount[k] = v.size })
   const postureRanking = Object.entries(postureCount).sort((a, b) => b[1] - a[1]).slice(0, 5)
+  const posturePieData = postureRanking.map(([key, value]) => ({
+    name: POSTURE_LABELS[key] || key,
+    value,
+  }))
+
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div style={{background:'#1e1e26',border:'1px solid #2a2a36',borderRadius:8,padding:'8px 12px'}}>
+          <div style={{fontSize:11,color:'#e8e8e8',fontWeight:700}}>{payload[0].name}</div>
+          <div style={{fontSize:13,fontWeight:800,color:'#39ff14'}}>{payload[0].value}人</div>
+        </div>
+      )
+    }
+    return null
+  }
 
   if (loading) return (
     <div style={{background:'#16161a',minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center'}}>
@@ -154,79 +202,100 @@ export default function AdminPage() {
 
       <div style={{padding:'14px 16px 40px'}}>
 
-        {/* ダッシュボードタブ */}
         {tab==='dashboard'&&(
           <div>
             {/* KPIカード */}
             <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:10,marginBottom:16}}>
-              <div style={{background:'#1e1e26',borderRadius:12,padding:'14px',border:'1px solid #2a2a36'}}>
-                <div style={{fontSize:10,color:'#666',marginBottom:4}}>総ユーザー数</div>
-                <div style={{fontSize:28,fontWeight:800,color:'#39ff14'}}>{totalUsers}</div>
-              </div>
-              <div style={{background:'#1e1e26',borderRadius:12,padding:'14px',border:'1px solid #2a2a36'}}>
-                <div style={{fontSize:10,color:'#666',marginBottom:4}}>7日間アクティブ</div>
-                <div style={{fontSize:28,fontWeight:800,color:'#00c8ff'}}>{activeUsers}</div>
-              </div>
-              <div style={{background:'#1e1e26',borderRadius:12,padding:'14px',border:'1px solid #2a2a36'}}>
-                <div style={{fontSize:10,color:'#666',marginBottom:4}}>継続率（7日）</div>
-                <div style={{fontSize:28,fontWeight:800,color:retentionRate>=50?'#39ff14':'#ff4455'}}>{retentionRate}%</div>
-              </div>
-              <div style={{background:'#1e1e26',borderRadius:12,padding:'14px',border:'1px solid #2a2a36'}}>
-                <div style={{fontSize:10,color:'#666',marginBottom:4}}>メニュー数</div>
-                <div style={{fontSize:28,fontWeight:800,color:'#ffd60a'}}>{menus.length}</div>
-              </div>
+              {[
+                {label:'総ユーザー数',value:totalUsers,color:'#39ff14'},
+                {label:'7日間アクティブ',value:activeUsers,color:'#00c8ff'},
+                {label:`継続率（7日）`,value:retentionRate+'%',color:retentionRate>=50?'#39ff14':'#ff4455'},
+                {label:'メニュー数',value:menus.length,color:'#ffd60a'},
+              ].map(item=>(
+                <div key={item.label} style={{background:'#1e1e26',borderRadius:12,padding:'14px',border:'1px solid #2a2a36'}}>
+                  <div style={{fontSize:10,color:'#666',marginBottom:4}}>{item.label}</div>
+                  <div style={{fontSize:28,fontWeight:800,color:item.color}}>{item.value}</div>
+                </div>
+              ))}
             </div>
 
             {/* 人気メニューランキング */}
             <div style={{background:'#1e1e26',borderRadius:12,padding:'16px',border:'1px solid #2a2a36',marginBottom:14}}>
-              <div style={{fontSize:10,color:'#39ff14',fontWeight:700,letterSpacing:1,marginBottom:12}}>人気メニューランキング</div>
+              <div style={{fontSize:10,color:'#39ff14',fontWeight:700,letterSpacing:1,marginBottom:4}}>人気メニューランキング</div>
+              <div style={{fontSize:9,color:'#444',marginBottom:12}}>※ユーザーごとの初回メニューを集計</div>
               {menuRanking.length===0&&<div style={{color:'#444',fontSize:12}}>まだデータがありません</div>}
               {menuRanking.map(([name,count],i)=>(
                 <div key={name} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 0',borderBottom:'1px solid #2a2a36'}}>
                   <div style={{fontSize:16,fontWeight:800,color:i===0?'#ffd60a':i===1?'#aaa':i===2?'#cd7f32':'#666',minWidth:24}}>{i+1}</div>
                   <div style={{flex:1,fontSize:12}}>{name}</div>
-                  <div style={{fontSize:12,fontWeight:700,color:'#39ff14'}}>{count}回</div>
+                  <div style={{fontSize:12,fontWeight:700,color:'#39ff14'}}>{count}人</div>
                 </div>
               ))}
             </div>
 
-            {/* ユーザータイプ分布 */}
+            {/* ユーザータイプ分布 円グラフ */}
             <div style={{background:'#1e1e26',borderRadius:12,padding:'16px',border:'1px solid #2a2a36',marginBottom:14}}>
               <div style={{fontSize:10,color:'#ffd60a',fontWeight:700,letterSpacing:1,marginBottom:12}}>ユーザータイプ分布</div>
-              {typeRanking.length===0&&<div style={{color:'#444',fontSize:12}}>まだデータがありません</div>}
-              {typeRanking.map(([type,count])=>(
-                <div key={type} style={{marginBottom:8}}>
-                  <div style={{display:'flex',justifyContent:'space-between',fontSize:11,marginBottom:4}}>
-                    <span>{type}</span>
-                    <span style={{color:'#ffd60a',fontWeight:700}}>{count}人</span>
+              {typePieData.length===0&&<div style={{color:'#444',fontSize:12}}>まだデータがありません</div>}
+              {typePieData.length>0&&(
+                <>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <PieChart>
+                      <Pie data={typePieData} cx="50%" cy="50%" outerRadius={80} dataKey="value"
+                        label={({percent}) => `${Math.round(percent*100)}%`} labelLine={false}>
+                        {typePieData.map((_,index)=>(
+                          <Cell key={index} fill={PIE_COLORS[index%PIE_COLORS.length]}/>
+                        ))}
+                      </Pie>
+                      <Tooltip content={<CustomTooltip/>}/>
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div style={{display:'flex',flexDirection:'column',gap:6,marginTop:8}}>
+                    {typePieData.map(({name,value},i)=>(
+                      <div key={name} style={{display:'flex',alignItems:'center',gap:8,fontSize:11}}>
+                        <div style={{width:10,height:10,borderRadius:2,background:PIE_COLORS[i%PIE_COLORS.length],flexShrink:0}}/>
+                        <span style={{flex:1,color:'#888'}}>{name}</span>
+                        <span style={{color:PIE_COLORS[i%PIE_COLORS.length],fontWeight:700}}>{value}人</span>
+                      </div>
+                    ))}
                   </div>
-                  <div style={{background:'#2a2a36',borderRadius:4,height:6,overflow:'hidden'}}>
-                    <div style={{height:'100%',width:`${Math.min((count/Math.max(...Object.values(typeCount)))*100,100)}%`,background:'#ffd60a',borderRadius:4}}/>
-                  </div>
-                </div>
-              ))}
+                </>
+              )}
             </div>
 
-            {/* 姿勢タイプ分布 */}
+            {/* 姿勢タイプ分布 円グラフ */}
             <div style={{background:'#1e1e26',borderRadius:12,padding:'16px',border:'1px solid #2a2a36'}}>
-              <div style={{fontSize:10,color:'#cc44ff',fontWeight:700,letterSpacing:1,marginBottom:12}}>姿勢タイプ分布</div>
-              {postureRanking.length===0&&<div style={{color:'#444',fontSize:12}}>まだデータがありません</div>}
-              {postureRanking.map(([posture,count])=>(
-                <div key={posture} style={{marginBottom:8}}>
-                  <div style={{display:'flex',justifyContent:'space-between',fontSize:11,marginBottom:4}}>
-                    <span>{posture}</span>
-                    <span style={{color:'#cc44ff',fontWeight:700}}>{count}人</span>
+              <div style={{fontSize:10,color:'#cc44ff',fontWeight:700,letterSpacing:1,marginBottom:4}}>姿勢タイプ分布</div>
+              <div style={{fontSize:9,color:'#444',marginBottom:12}}>※ユーザーごとの最新データを集計</div>
+              {posturePieData.length===0&&<div style={{color:'#444',fontSize:12}}>まだデータがありません</div>}
+              {posturePieData.length>0&&(
+                <>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <PieChart>
+                      <Pie data={posturePieData} cx="50%" cy="50%" outerRadius={80} dataKey="value"
+                        label={({percent}) => `${Math.round(percent*100)}%`} labelLine={false}>
+                        {posturePieData.map((_,index)=>(
+                          <Cell key={index} fill={PIE_COLORS[index%PIE_COLORS.length]}/>
+                        ))}
+                      </Pie>
+                      <Tooltip content={<CustomTooltip/>}/>
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div style={{display:'flex',flexDirection:'column',gap:6,marginTop:8}}>
+                    {posturePieData.map(({name,value},i)=>(
+                      <div key={name} style={{display:'flex',alignItems:'center',gap:8,fontSize:11}}>
+                        <div style={{width:10,height:10,borderRadius:2,background:PIE_COLORS[i%PIE_COLORS.length],flexShrink:0}}/>
+                        <span style={{flex:1,color:'#888'}}>{name}</span>
+                        <span style={{color:PIE_COLORS[i%PIE_COLORS.length],fontWeight:700}}>{value}人</span>
+                      </div>
+                    ))}
                   </div>
-                  <div style={{background:'#2a2a36',borderRadius:4,height:6,overflow:'hidden'}}>
-                    <div style={{height:'100%',width:`${Math.min((count/Math.max(...Object.values(postureCount)))*100,100)}%`,background:'#cc44ff',borderRadius:4}}/>
-                  </div>
-                </div>
-              ))}
+                </>
+              )}
             </div>
           </div>
         )}
 
-        {/* ユーザータブ */}
         {tab==='users'&&(
           <div>
             <div style={{fontSize:11,color:'#666',marginBottom:12}}>登録ユーザー一覧（{users.length}名）</div>
@@ -252,7 +321,6 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* メニュータブ */}
         {tab==='menus'&&(
           <div>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
@@ -299,7 +367,6 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* 履歴タブ */}
         {tab==='logs'&&(
           <div>
             <div style={{fontSize:11,color:'#666',marginBottom:12}}>トレーニング履歴（{logs.length}件）</div>
