@@ -207,6 +207,7 @@ export default function DashboardPage() {
               {label:'📈 成長記録',color:'#cc44ff',path:'/progress'},
               {label:'🍱 食事分析',color:'#ff8c00',path:'/food'},
               {label:'⚖️ 体重記録',color:'#00c8ff',path:'/body'},
+              {label:'🤖 AIコーチ',color:'#39ff14',path:'/coach'},
             ].map(item=>(
               <button key={item.path} onClick={()=>router.push(item.path)}
                 style={{
