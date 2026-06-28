@@ -10,7 +10,7 @@ const MEAL_TYPES = [
   { key: 'snack',     label: '間食', emoji: '🍩', color: '#00c8ff' },
 ]
 
-function calcTargetCalories(user: any): number {
+function calcTargetCalories(user: any, activityLevel: number): number {
   const weight = user?.weight || 65
   const height = user?.height || 165
   const age = user?.age || 30
@@ -18,7 +18,7 @@ function calcTargetCalories(user: any): number {
   let bmr = gender === 'female'
     ? 447.6 + 9.25 * weight + 3.1 * height - 4.33 * age
     : 88.36 + 13.4 * weight + 4.8 * height - 5.68 * age
-  let tdee = bmr * 1.55
+  let tdee = bmr * activityLevel
   const goal = user?.goal || ''
   if (goal.includes('引き締め') || goal.includes('ダイエット') || goal.includes('減量')) tdee -= 200
   else if (goal.includes('筋肥大') || goal.includes('増量') || goal.includes('筋力向上')) tdee += 300
@@ -40,6 +40,7 @@ export default function FoodPage() {
   const [logs, setLogs] = useState<any[]>([])
   const [userId, setUserId] = useState<string>('')
   const [userProfile, setUserProfile] = useState<any>(null)
+  const [activityLevel, setActivityLevel] = useState<number>(1.2)
   const [selectedMeal, setSelectedMeal] = useState<string>('breakfast')
   const [activeTab, setActiveTab] = useState<'record' | 'history'>('record')
   const [weekLogs, setWeekLogs] = useState<any[]>([])
@@ -60,8 +61,37 @@ export default function FoodPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/auth'); return }
     setUserId(user.id)
+
     const { data: profile } = await supabase.from('users').select('*').eq('id', user.id).single()
     setUserProfile(profile)
+
+    // 直近7日のトレーニング回数から活動量を自動計算
+    const from = new Date()
+    from.setDate(from.getDate() - 7)
+    const { data: trainings } = await supabase
+  .from('training_logs')
+  .select('menu_name')
+  .eq('user_id', user.id)
+  .gte('created_at', from.toISOString())
+
+  const highKeywords = ['スクワット','デッドリフト','ベンチプレス','HIIT','バーピー','プッシュアップ','懸垂','ランジ']
+  const midKeywords = ['ジョギング','ウォーク','有酸素','マラソン','持久力','ランニング','インターバル','筋力','全身','上半身','下半身']
+const lowKeywords = ['姿勢','ストレッチ','骨盤','巻き肩','O脚','ウォール','改善']
+
+let highCount = 0, midCount = 0, lowCount = 0
+for (const t of trainings || []) {
+  const name = t.menu_name || ''
+  if (highKeywords.some(k => name.includes(k))) highCount++
+  else if (midKeywords.some(k => name.includes(k))) midCount++
+  else if (lowKeywords.some(k => name.includes(k))) lowCount++
+}
+
+let level = 1.2
+if (highCount >= 3) level = 1.725
+else if (highCount >= 1 || midCount >= 3) level = 1.55
+else if (midCount >= 1 || lowCount >= 3) level = 1.375
+setActivityLevel(level)
+
     await loadLogs(user.id, new Date().toISOString().slice(0, 10))
     await loadWeekLogs(user.id)
   }
@@ -142,7 +172,7 @@ export default function FoodPage() {
     setLogs(l => l.filter(x => x.id !== id))
   }
 
-  const targetCalories = userProfile ? calcTargetCalories(userProfile) : 2000
+  const targetCalories = userProfile ? calcTargetCalories(userProfile, activityLevel) : 2000
   const targetProtein = userProfile ? calcTargetProtein(userProfile) : 100
 
   const totalCalories = logs.reduce((s, l) => s + (l.calories || 0), 0)
@@ -173,6 +203,10 @@ export default function FoodPage() {
     : 0
   const proteinOkDays = weekDays.filter(d => d.protein >= targetProtein).length
   const maxWeekCal = Math.max(...weekDays.map(d => d.cal), 1)
+
+  const activityLabel = activityLevel === 1.725 ? '週5回以上' :
+    activityLevel === 1.55 ? '週3〜4回' :
+    activityLevel === 1.375 ? '週1〜2回' : 'ほぼ運動なし'
 
   const ratingColor = (r: string) =>
     r === '良い' ? '#39ff14' : r === '普通' ? '#ffd60a' : '#ff4455'
@@ -246,6 +280,9 @@ export default function FoodPage() {
                       <span style={{ fontSize: 36, fontWeight: 900, color: '#ff8c00' }}>{totalCalories}</span>
                       <span style={{ fontSize: 13, color: '#555' }}>/ {targetCalories} kcal</span>
                     </div>
+                    <div style={{ fontSize: 10, color: '#444', marginTop: 4 }}>
+                      活動量: {activityLabel}（×{activityLevel}）
+                    </div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: 11, color: '#555', marginBottom: 4 }}>残り</div>
@@ -256,7 +293,6 @@ export default function FoodPage() {
                   </div>
                 </div>
 
-                {/* カロリーバー */}
                 <div style={{ marginBottom: 12 }}>
                   <div style={{ background: '#25252f', borderRadius: 8, height: 12, overflow: 'hidden' }}>
                     <div style={{
@@ -273,7 +309,6 @@ export default function FoodPage() {
                   </div>
                 </div>
 
-                {/* たんぱく質バー */}
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                     <span style={{ fontSize: 11, color: '#00c8ff' }}>たんぱく質</span>
@@ -288,7 +323,6 @@ export default function FoodPage() {
                   </div>
                 </div>
 
-                {/* PFC */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginTop: 12 }}>
                   {[
                     { label: '炭水化物', value: totalCarbs.toFixed(0), color: '#ffd60a' },
@@ -361,8 +395,6 @@ export default function FoodPage() {
                 border: '1px solid #2a2a36', marginBottom: 16,
               }}>
                 <div style={{ fontSize: 12, color: '#666', fontWeight: 600, marginBottom: 14 }}>食事を追加</div>
-
-                {/* ミール選択 */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 16 }}>
                   {MEAL_TYPES.map(mt => (
                     <button key={mt.key}
@@ -380,7 +412,6 @@ export default function FoodPage() {
                     </button>
                   ))}
                 </div>
-
                 <label style={{ display: 'block', cursor: 'pointer', marginBottom: 14 }}>
                   <div style={{
                     background: '#25252f',
@@ -404,7 +435,6 @@ export default function FoodPage() {
                   <input type="file" accept="image/*" capture="environment"
                     onChange={handleImage} style={{ display: 'none' }} />
                 </label>
-
                 <button onClick={analyze} disabled={!image || loading}
                   style={{
                     width: '100%', padding: '16px',
@@ -601,7 +631,7 @@ export default function FoodPage() {
                     {[
                       { label: '目標カロリー', value: `${targetCalories} kcal`, color: '#ff8c00' },
                       { label: 'たんぱく質目標', value: `${targetProtein} g`, color: '#00c8ff' },
-                      { label: '体重', value: userProfile.weight ? `${userProfile.weight} kg` : '未設定', color: '#e8e8e8' },
+                      { label: '活動レベル', value: activityLabel, color: '#39ff14' },
                       { label: 'BMI', value: userProfile.weight && userProfile.height ? (userProfile.weight / ((userProfile.height / 100) ** 2)).toFixed(1) : '-', color: '#e8e8e8' },
                     ].map(item => (
                       <div key={item.label} style={{ background: '#25252f', borderRadius: 12, padding: '12px 14px' }}>
