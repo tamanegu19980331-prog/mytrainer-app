@@ -274,7 +274,7 @@ export default function AdminPage() {
                   <ResponsiveContainer width="100%" height={200}>
                     <PieChart>
                       <Pie data={posturePieData} cx="50%" cy="50%" outerRadius={80} dataKey="value"
-                        label={({percent}) => `${Math.round(percent*100)}%`} labelLine={false}>
+                        label={({percent}) => `${Math.round((percent||0)*100)}%`} labelLine={false}>
                         {posturePieData.map((_,index)=>(
                           <Cell key={index} fill={PIE_COLORS[index%PIE_COLORS.length]}/>
                         ))}

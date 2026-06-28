@@ -2,5 +2,18 @@
 - Environments: .env.local
 
   Creating an optimized production build ...
-✓ Compiled successfully in 7.5s
+✓ Compiled successfully in 7.3s
   Running TypeScript ...
+Failed to type check.
+
+./app/admin/page.tsx:277:61
+Type error: 'percent' is possibly 'undefined'.
+
+  [90m275 |[0m ...   <[33mPieChart[0m>
+  [90m276 |[0m ...     <[33mPie[0m data={posturePieData} cx=[32m"50%"[0m cy=[32m"50%"[0m outerRadius={[35m80[0m} dataKey=[32m"value"[0m
+[31m[1m>[0m [90m277 |[0m ...       label={({percent}) => [32m`[0m${[33mMath[0m.round(percent*[35m100[0m)[32m}%`[0m} labelLine={[36mfalse[0m}>
+  [90m    |[0m                                               [31m[1m^[0m
+  [90m278 |[0m ...       {posturePieData.map((_,index)=>(
+  [90m279 |[0m ...         <[33mCell[0m key={index} fill={[33mPIE_COLORS[0m[index%[33mPIE_COLORS[0m.length]}/>
+  [90m280 |[0m ...       ))}
+Next.js build worker exited with code: 1 and signal: null
