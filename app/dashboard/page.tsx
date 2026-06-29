@@ -31,6 +31,7 @@ export default function DashboardPage() {
   const [exp, setExp] = useState(0)
   const [streak, setStreak] = useState(0)
   const [showHistory, setShowHistory] = useState(false)
+  const [challengeProgress, setChallengeProgress] = useState({ total: 0, completed: 0 })
   const router = useRouter()
 
   useEffect(() => { init() }, [])
@@ -49,6 +50,23 @@ export default function DashboardPage() {
       .order('created_at', { ascending: false })
       .limit(20)
     setLogs(logData || [])
+
+    // チャレンジ進捗
+    const now = new Date()
+    const day = now.getDay()
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1)
+    const monday = new Date(new Date().setDate(diff))
+    const weekStart = monday.toISOString().slice(0, 10)
+    const { data: challenges } = await supabase
+      .from('challenges').select('id')
+      .gte('week_start', weekStart)
+    const { data: comps } = await supabase
+      .from('challenge_completions').select('id')
+      .eq('user_id', user.id)
+    setChallengeProgress({
+      total: challenges?.length || 0,
+      completed: comps?.length || 0,
+    })
   }
 
   if (!profile) return (
@@ -181,6 +199,35 @@ export default function DashboardPage() {
               ))}
             </div>
           </div>
+
+          {/* チャレンジカード */}
+          {challengeProgress.total > 0 && (
+            <div onClick={() => router.push('/challenges')}
+              style={{
+                background: '#1e1e26', borderRadius: 16, padding: '16px 20px',
+                border: '1px solid #2a2a36', marginBottom: 12, cursor: 'pointer',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ fontSize: 28 }}>🎯</div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#ffd60a', marginBottom: 2 }}>今週のチャレンジ</div>
+                  <div style={{ fontSize: 11, color: '#555' }}>
+                    {challengeProgress.completed}/{challengeProgress.total} 達成
+                  </div>
+                  <div style={{ background: '#25252f', borderRadius: 4, height: 4, width: 100, marginTop: 6, overflow: 'hidden' }}>
+                    <div style={{
+                      height: '100%',
+                      width: `${challengeProgress.total > 0 ? (challengeProgress.completed / challengeProgress.total) * 100 : 0}%`,
+                      background: 'linear-gradient(90deg,#ffd60a,#ff8c00)',
+                      borderRadius: 4,
+                    }} />
+                  </div>
+                </div>
+              </div>
+              <span style={{ color: '#444', fontSize: 16 }}>→</span>
+            </div>
+          )}
 
           {/* メインCTA */}
           <button onClick={()=>router.push('/menu')}
