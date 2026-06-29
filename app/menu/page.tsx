@@ -573,14 +573,67 @@ export default function MenuPage() {
 
   if (completed) return (
     <div style={{background:'#16161a',minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center'}}>
-      <div style={{textAlign:'center',padding:'0 24px',maxWidth:400}}>
+      <div style={{textAlign:'center',padding:'0 24px',maxWidth:400,width:'100%'}}>
         <div style={{fontSize:72,marginBottom:16}}>💪</div>
         <div style={{fontSize:28,fontWeight:800,color:'#39ff14',marginBottom:8}}>トレーニング完了！</div>
         <div style={{display:'inline-block',background:'rgba(255,215,10,0.1)',border:'1px solid rgba(255,215,10,0.3)',borderRadius:12,padding:'10px 20px',marginBottom:12}}>
           <span style={{fontSize:20,fontWeight:800,color:'#ffd60a'}}>+{expGained} EXP</span>
         </div>
         {newStreak>1&&<div style={{fontSize:14,color:'#ff8c00',fontWeight:700,marginBottom:8}}>🔥 {newStreak}日連続トレーニング！</div>}
-        <div style={{fontSize:13,color:'#555',marginBottom:32}}>お疲れ様でした。継続が力です！</div>
+        <div style={{fontSize:13,color:'#555',marginBottom:24}}>お疲れ様でした。継続が力です！</div>
+  
+        {/* シェアカード */}
+        <div style={{background:'linear-gradient(135deg,#1a1a2e,#16213e)',borderRadius:16,padding:'16px',border:'1px solid rgba(57,255,20,0.2)',marginBottom:16,textAlign:'left'}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
+            <div style={{width:36,height:36,borderRadius:'50%',background:'linear-gradient(135deg,#39ff14,#00c8ff)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16}}>💪</div>
+            <div style={{flex:1}}>
+              <div style={{fontSize:13,fontWeight:700,color:'#e8e8e8'}}>{menu?.userName || 'トレーニー'}</div>
+              <div style={{fontSize:10,color:'#555'}}>MyTrainer</div>
+            </div>
+            <div style={{fontSize:10,color:'#39ff14',fontWeight:700}}>MyTrainer</div>
+          </div>
+          <div style={{fontSize:14,color:'#39ff14',fontWeight:700,marginBottom:4}}>
+            🔥 {menu?.theme} 完了！
+          </div>
+          <div style={{fontSize:11,color:'#888',marginBottom:10}}>{new Date().toLocaleDateString('ja-JP')} 達成</div>
+          <div style={{display:'flex',gap:8}}>
+            <div style={{background:'rgba(57,255,20,0.2)',borderRadius:6,padding:'4px 10px',fontSize:11,color:'#39ff14',fontWeight:700}}>+{expGained} EXP</div>
+            {newStreak>1&&<div style={{background:'rgba(255,140,0,0.2)',borderRadius:6,padding:'4px 10px',fontSize:11,color:'#ff8c00',fontWeight:700}}>{newStreak}日連続🔥</div>}
+          </div>
+        </div>
+  
+        {/* シェアボタン */}
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
+          <button onClick={async()=>{
+            const text = `今日のトレーニング完了！💪\n${menu?.theme}\n+${expGained} EXP獲得${newStreak>1?`\n🔥${newStreak}日連続`:''}\n#MyTrainer #筋トレ`
+            if(navigator.share){
+              await navigator.share({title:'トレーニング完了！',text})
+            } else {
+              await navigator.clipboard.writeText(text)
+              alert('テキストをコピーしました！')
+            }
+          }}
+            style={{padding:'12px',background:'linear-gradient(135deg,#39ff14,#00c8ff)',border:'none',borderRadius:12,fontSize:13,fontWeight:700,color:'#000',cursor:'pointer'}}>
+            📤 シェアする
+          </button>
+          <button onClick={async()=>{
+            const { data:{user} } = await supabase.auth.getUser()
+            if(!user) return
+            const { data:profile } = await supabase.from('users').select('name').eq('id',user.id).single()
+            const content = `🔥 ${menu?.theme} 完了！\n+${expGained} EXP獲得${newStreak>1?` · ${newStreak}日連続🔥`:''}`
+            await supabase.from('posts').insert({
+              user_id: user.id,
+              user_name: profile?.name || 'トレーニー',
+              content,
+              category: '達成報告',
+            })
+            alert('広場に投稿しました！')
+          }}
+            style={{padding:'12px',background:'rgba(204,68,255,0.15)',border:'1px solid rgba(204,68,255,0.4)',borderRadius:12,fontSize:13,fontWeight:700,color:'#cc44ff',cursor:'pointer'}}>
+            💬 広場に投稿
+          </button>
+        </div>
+  
         <button onClick={()=>router.push('/dashboard')} style={{width:'100%',padding:'18px',background:'linear-gradient(135deg,#39ff14,#00c8ff)',color:'#000',border:'none',borderRadius:16,fontSize:16,fontWeight:800,cursor:'pointer'}}>
           ダッシュボードへ →
         </button>
