@@ -151,7 +151,7 @@ export default function CoachPage() {
               </div>
             )}
 
-            <div style={{padding:'12px 16px 24px',borderTop:'1px solid #1e1e26',background:'#16161a',flexShrink:0}}>
+<div style={{padding:'12px 16px 80px',borderTop:'1px solid #1e1e26',background:'#16161a',flexShrink:0}}>
               <div style={{display:'flex',gap:8}}>
                 <input value={input} onChange={e=>setInput(e.target.value)}
                   onKeyDown={e=>e.key==='Enter'&&!e.shiftKey&&sendMessage()}
