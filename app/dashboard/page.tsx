@@ -72,11 +72,11 @@ export default function DashboardPage() {
 
   return (
     <div style={{background:'#16161a',minHeight:'100vh',color:'#e8e8e8'}}>
-      <div style={{maxWidth:480,margin:'0 auto',padding:'0 0 60px'}}>
+      <div style={{maxWidth:480,margin:'0 auto',padding:'0 0 100px'}}>
 
         {/* ヘッダー */}
         <div style={{
-          padding:'20px 24px 20px',
+          padding:'20px 24px',
           display:'flex',alignItems:'center',justifyContent:'space-between',
           borderBottom:'1px solid #1e1e26',
         }}>
@@ -84,10 +84,6 @@ export default function DashboardPage() {
             <div style={{fontSize:11,color:'#39ff14',fontWeight:700,letterSpacing:2,marginBottom:2}}>MY TRAINER</div>
             <div style={{fontSize:18,fontWeight:800}}>こんにちは、{profile.name}さん 👋</div>
           </div>
-          <button onClick={async()=>{await supabase.auth.signOut();router.push('/auth')}}
-            style={{padding:'8px 14px',background:'#1e1e26',border:'none',borderRadius:10,color:'#666',fontSize:12,cursor:'pointer'}}>
-            ログアウト
-          </button>
         </div>
 
         <div style={{padding:'20px 24px 0'}}>
@@ -142,7 +138,6 @@ export default function DashboardPage() {
               )}
             </div>
 
-            {/* EXPバー */}
             <div>
               <div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'#666',marginBottom:8}}>
                 <span>{exp} EXP</span>
@@ -200,32 +195,20 @@ export default function DashboardPage() {
             ⚡ 今日のメニューを生成する
           </button>
 
-          {/* サブボタングリッド */}
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
-            {[
-              {label:'🏆 ランキング',color:'#ffd60a',path:'/ranking'},
-              {label:'📈 成長記録',color:'#cc44ff',path:'/progress'},
-              {label:'🍱 食事分析',color:'#ff8c00',path:'/food'},
-              {label:'⚖️ 体重記録',color:'#00c8ff',path:'/body'},
-              {label:'🤖 AIコーチ',color:'#39ff14',path:'/coach'},
-              {label:'👨‍💼 パーソナル面談',color:'#ffd60a',path:'/coach?tab=trainer'},
-            ].map(item=>(
-              <button key={item.path} onClick={()=>router.push(item.path)}
-                style={{
-                  padding:'16px 12px',
-                  background:'#1e1e26',
-                  border:'1px solid #2a2a36',
-                  borderRadius:14,
-                  color:item.color,
-                  fontSize:13,fontWeight:700,
-                  cursor:'pointer',
-                  textAlign:'center',
-                  transition:'all 0.2s',
-                }}>
-                {item.label}
-              </button>
-            ))}
-          </div>
+          {/* サブボタン */}
+          <button onClick={()=>router.push('/progress?tab=weight')}
+            style={{
+              width:'100%',padding:'16px',
+              background:'#1e1e26',
+              border:'1px solid #2a2a36',
+              borderRadius:14,
+              color:'#00c8ff',
+              fontSize:14,fontWeight:700,
+              cursor:'pointer',
+              marginBottom:12,
+            }}>
+            ⚖️ 体重・体脂肪を記録する
+          </button>
 
           {/* 履歴ボタン */}
           <button onClick={()=>setShowHistory(!showHistory)}
@@ -239,7 +222,6 @@ export default function DashboardPage() {
             {showHistory ? '履歴を閉じる ↑' : `📋 トレーニング履歴（${logs.filter(l=>l.completed).length}件）`}
           </button>
 
-          {/* 履歴リスト */}
           {showHistory && (
             <div>
               {logs.length===0&&(

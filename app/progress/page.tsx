@@ -7,8 +7,14 @@ export default function ProgressPage() {
   const [fitnessLogs, setFitnessLogs] = useState<any[]>([])
   const [exerciseLogs, setExerciseLogs] = useState<any[]>([])
   const [trainingLogs, setTrainingLogs] = useState<any[]>([])
+  const [weightLogs, setWeightLogs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('fitness')
+  const [weightInput, setWeightInput] = useState('')
+  const [bodyFatInput, setBodyFatInput] = useState('')
+  const [memoInput, setMemoInput] = useState('')
+  const [savingWeight, setSavingWeight] = useState(false)
+  const [userId, setUserId] = useState('')
   const router = useRouter()
 
   useEffect(() => { init() }, [])
@@ -16,15 +22,41 @@ export default function ProgressPage() {
   const init = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/auth'); return }
-    const [f, e, t] = await Promise.all([
+    setUserId(user.id)
+    const [f, e, t, w] = await Promise.all([
       supabase.from('fitness_logs').select('*').eq('user_id', user.id).order('created_at', { ascending: true }),
       supabase.from('exercise_logs').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50),
       supabase.from('training_logs').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+      supabase.from('weight_logs').select('*').eq('user_id', user.id).order('logged_date', { ascending: true }),
     ])
     setFitnessLogs(f.data || [])
     setExerciseLogs(e.data || [])
     setTrainingLogs(t.data || [])
+    setWeightLogs(w.data || [])
     setLoading(false)
+  }
+
+  const saveWeight = async () => {
+    if (!weightInput || !userId) return
+    setSavingWeight(true)
+    const today = new Date().toISOString().slice(0, 10)
+    const { data } = await supabase.from('weight_logs').insert({
+      user_id: userId,
+      weight: parseFloat(weightInput),
+      body_fat: bodyFatInput ? parseFloat(bodyFatInput) : null,
+      memo: memoInput,
+      logged_date: today,
+    }).select().single()
+    if (data) setWeightLogs(l => [...l, data])
+    setWeightInput('')
+    setBodyFatInput('')
+    setMemoInput('')
+    setSavingWeight(false)
+  }
+
+  const deleteWeight = async (id: string) => {
+    await supabase.from('weight_logs').delete().eq('id', id)
+    setWeightLogs(l => l.filter(x => x.id !== id))
   }
 
   const rankColor = (r: string) => ({S:'#ffd60a',A:'#39ff14',B:'#00c8ff',C:'#ff8c00',D:'#ff6b9d',F:'#ff4455'}[r]||'#666')
@@ -48,7 +80,12 @@ export default function ProgressPage() {
 
   const totalCompleted = trainingLogs.filter(t => t.completed).length
 
-  // マイルストーン判定
+  const latestWeight = weightLogs[weightLogs.length - 1]
+  const firstWeight = weightLogs[0]
+  const weightDiff = latestWeight && firstWeight ? (latestWeight.weight - firstWeight.weight).toFixed(1) : null
+  const maxWeight = weightLogs.length > 0 ? Math.max(...weightLogs.map(w => w.weight)) : 0
+  const minWeight = weightLogs.length > 0 ? Math.min(...weightLogs.map(w => w.weight)) : 0
+
   const getMilestones = () => {
     const milestones = []
     if (totalCompleted >= 1) milestones.push({ emoji: '🎉', text: '初回トレーニング達成！' })
@@ -65,7 +102,6 @@ export default function ProgressPage() {
 
   const milestones = getMilestones()
 
-  // 励ましメッセージ
   const getMotivationMessage = () => {
     if (!latest) return '体力テストで今の自分を確認しよう！'
     const ranks = [latest.pushup_rank, latest.situp_rank, latest.plank_rank]
@@ -86,7 +122,7 @@ export default function ProgressPage() {
 
   return (
     <div style={{background:'#16161a',minHeight:'100vh',color:'#e8e8e8'}}>
-      <div style={{maxWidth:480,margin:'0 auto',padding:'0 0 60px'}}>
+      <div style={{maxWidth:480,margin:'0 auto',padding:'0 0 100px'}}>
         <div style={{padding:'20px 24px',display:'flex',alignItems:'center',gap:12,borderBottom:'1px solid #1e1e26'}}>
           <button onClick={()=>router.push('/dashboard')}
             style={{background:'none',border:'none',color:'#666',fontSize:24,cursor:'pointer',padding:0}}>←</button>
@@ -98,7 +134,6 @@ export default function ProgressPage() {
 
         <div style={{padding:'20px 24px 0'}}>
 
-          {/* KPIカード */}
           <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,marginBottom:16}}>
             {[
               {label:'総完了回数',value:totalCompleted,color:'#39ff14',unit:'回',emoji:'💪'},
@@ -114,7 +149,6 @@ export default function ProgressPage() {
             ))}
           </div>
 
-          {/* マイルストーン */}
           {milestones.length > 0 && (
             <div style={{background:'rgba(255,215,10,0.06)',borderRadius:16,padding:'16px 18px',border:'1px solid rgba(255,215,10,0.2)',marginBottom:16}}>
               <div style={{fontSize:11,color:'#ffd60a',fontWeight:700,marginBottom:10}}>🏆 達成したこと</div>
@@ -127,28 +161,26 @@ export default function ProgressPage() {
             </div>
           )}
 
-          {/* 励ましメッセージ */}
           <div style={{background:'rgba(57,255,20,0.06)',borderRadius:16,padding:'14px 18px',border:'1px solid rgba(57,255,20,0.15)',marginBottom:20}}>
             <div style={{fontSize:12,color:'#39ff14',lineHeight:1.7,fontWeight:600}}>
               💬 {getMotivationMessage()}
             </div>
           </div>
 
-          {/* タブ */}
-          <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:6,marginBottom:20}}>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:6,marginBottom:20}}>
             {[
-              {v:'fitness',l:'体力テスト',c:'#ffd60a'},
-              {v:'exercise',l:'種目記録',c:'#39ff14'},
+              {v:'fitness',l:'体力',c:'#ffd60a'},
+              {v:'weight',l:'体重',c:'#ff6b9d'},
+              {v:'exercise',l:'種目',c:'#39ff14'},
               {v:'history',l:'履歴',c:'#00c8ff'},
             ].map(t=>(
               <button key={t.v} onClick={()=>setTab(t.v)}
-                style={{padding:'12px 8px',background:tab===t.v?'rgba(255,215,10,0.08)':'#1e1e26',border:'1.5px solid '+(tab===t.v?t.c:'#2a2a36'),borderRadius:12,color:tab===t.v?t.c:'#555',fontSize:12,fontWeight:700,cursor:'pointer',transition:'all 0.2s'}}>
+                style={{padding:'12px 4px',background:tab===t.v?'rgba(255,215,10,0.08)':'#1e1e26',border:'1.5px solid '+(tab===t.v?t.c:'#2a2a36'),borderRadius:12,color:tab===t.v?t.c:'#555',fontSize:11,fontWeight:700,cursor:'pointer',transition:'all 0.2s'}}>
                 {t.l}
               </button>
             ))}
           </div>
 
-          {/* 体力テストタブ */}
           {tab==='fitness'&&(
             <div>
               {fitnessLogs.length===0&&(
@@ -162,7 +194,6 @@ export default function ProgressPage() {
                   </button>
                 </div>
               )}
-
               {latest&&(
                 <div style={{background:'#1e1e26',borderRadius:20,padding:'24px',border:'1px solid #2a2a36',marginBottom:12}}>
                   <div style={{fontSize:12,color:'#ffd60a',fontWeight:700,marginBottom:4}}>最新の体力テスト</div>
@@ -190,7 +221,6 @@ export default function ProgressPage() {
                           <div style={{fontSize:15,fontWeight:700}}>{item.value}{item.unit}</div>
                         </div>
                       </div>
-                      {/* ランク進捗バー */}
                       <div style={{marginTop:8}}>
                         <div style={{display:'flex',justifyContent:'space-between',fontSize:9,color:'#444',marginBottom:4}}>
                           <span>F</span><span>D</span><span>C</span><span>B</span><span>A</span><span>S</span>
@@ -201,8 +231,6 @@ export default function ProgressPage() {
                       </div>
                     </div>
                   ))}
-
-                  {/* 次のランクへのメッセージ */}
                   {latest.pushup_rank !== 'S' && (
                     <div style={{marginTop:16,padding:'12px 14px',background:'rgba(57,255,20,0.06)',borderRadius:12,border:'1px solid rgba(57,255,20,0.15)'}}>
                       <div style={{fontSize:12,color:'#39ff14',fontWeight:700,marginBottom:4}}>🎯 次の目標</div>
@@ -213,8 +241,6 @@ export default function ProgressPage() {
                   )}
                 </div>
               )}
-
-              {/* グラフ */}
               {fitnessLogs.length>1&&(
                 <div style={{background:'#1e1e26',borderRadius:20,padding:'24px',border:'1px solid #2a2a36',marginBottom:12}}>
                   <div style={{fontSize:12,color:'#ffd60a',fontWeight:700,marginBottom:4}}>腕立て伏せ推移</div>
@@ -247,7 +273,6 @@ export default function ProgressPage() {
                   )}
                 </div>
               )}
-
               <button onClick={()=>router.push('/fitness-test')}
                 style={{width:'100%',padding:'16px',background:'linear-gradient(135deg,#39ff14,#00c8ff)',color:'#000',border:'none',borderRadius:14,fontSize:14,fontWeight:800,cursor:'pointer'}}>
                 体力テストを再測定 →
@@ -255,7 +280,134 @@ export default function ProgressPage() {
             </div>
           )}
 
-          {/* 種目記録タブ */}
+          {tab==='weight'&&(
+            <div>
+              <div style={{background:'#1e1e26',borderRadius:20,padding:24,border:'1px solid #2a2a36',marginBottom:16}}>
+                <div style={{fontSize:12,color:'#ff6b9d',fontWeight:700,marginBottom:16}}>今日の体重を記録</div>
+                <div style={{display:'flex',gap:8,marginBottom:10}}>
+                  <input
+                    type="number" step="0.1" placeholder="体重 (kg)"
+                    value={weightInput} onChange={e=>setWeightInput(e.target.value)}
+                    style={{flex:1,background:'#25252f',border:'1px solid #2a2a36',borderRadius:12,padding:'12px 10px',color:'#e8e8e8',fontSize:14,outline:'none'}}
+                  />
+                  <input
+                    type="number" step="0.1" placeholder="体脂肪率 (%)"
+                    value={bodyFatInput} onChange={e=>setBodyFatInput(e.target.value)}
+                    style={{flex:1,background:'#25252f',border:'1px solid #2a2a36',borderRadius:12,padding:'12px 10px',color:'#e8e8e8',fontSize:14,outline:'none'}}
+                  />
+                </div>
+                <div style={{display:'flex',gap:8}}>
+                  <input
+                    type="text" placeholder="メモ（任意）"
+                    value={memoInput} onChange={e=>setMemoInput(e.target.value)}
+                    style={{flex:1,background:'#25252f',border:'1px solid #2a2a36',borderRadius:12,padding:'12px 10px',color:'#e8e8e8',fontSize:13,outline:'none'}}
+                  />
+                  <button onClick={saveWeight} disabled={!weightInput||savingWeight}
+                    style={{
+                      padding:'12px 20px',
+                      background:weightInput?'linear-gradient(135deg,#ff6b9d,#cc44ff)':'#25252f',
+                      color:weightInput?'#fff':'#444',
+                      border:'none',borderRadius:12,fontSize:14,fontWeight:800,
+                      cursor:weightInput?'pointer':'not-allowed',whiteSpace:'nowrap',
+                    }}>
+                    {savingWeight?'保存中...':'記録'}
+                  </button>
+                </div>
+              </div>
+
+              {weightLogs.length > 0 && (
+                <>
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,marginBottom:16}}>
+                    {[
+                      {label:'現在',value:`${latestWeight?.weight}kg`,color:'#ff6b9d'},
+                      {label:'最高',value:`${maxWeight}kg`,color:'#ff4455'},
+                      {label:'最低',value:`${minWeight}kg`,color:'#39ff14'},
+                    ].map(item=>(
+                      <div key={item.label} style={{background:'#1e1e26',borderRadius:14,padding:'14px 10px',border:'1px solid #2a2a36',textAlign:'center'}}>
+                        <div style={{fontSize:10,color:'#555',marginBottom:4}}>{item.label}</div>
+                        <div style={{fontSize:16,fontWeight:800,color:item.color}}>{item.value}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {weightDiff !== null && weightLogs.length >= 2 && (
+                    <div style={{
+                      background: parseFloat(weightDiff) < 0 ? 'rgba(57,255,20,0.06)' : 'rgba(255,68,85,0.06)',
+                      border: `1px solid ${parseFloat(weightDiff) < 0 ? 'rgba(57,255,20,0.2)' : 'rgba(255,68,85,0.2)'}`,
+                      borderRadius:14,padding:'14px 18px',marginBottom:16,textAlign:'center',
+                    }}>
+                      <div style={{fontSize:13,fontWeight:700,color:parseFloat(weightDiff)<0?'#39ff14':'#ff4455'}}>
+                        {parseFloat(weightDiff)<0?'📉':'📈'} 記録開始から {weightDiff}kg
+                      </div>
+                    </div>
+                  )}
+
+                  {weightLogs.length > 1 && (
+                    <div style={{background:'#1e1e26',borderRadius:20,padding:24,border:'1px solid #2a2a36',marginBottom:16}}>
+                      <div style={{fontSize:12,color:'#ff6b9d',fontWeight:700,marginBottom:16}}>体重推移</div>
+                      <div style={{display:'flex',alignItems:'flex-end',gap:4,height:100}}>
+                        {weightLogs.slice(-14).map((l,i,arr)=>{
+                          const max = Math.max(...arr.map((x:any)=>x.weight))
+                          const min = Math.min(...arr.map((x:any)=>x.weight))
+                          const range = max - min || 1
+                          const h = ((l.weight - min) / range) * 70 + 20
+                          const isLatest = i === arr.length - 1
+                          return (
+                            <div key={i} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:4}}>
+                              <div style={{fontSize:8,color:isLatest?'#ff6b9d':'#444'}}>{isLatest?l.weight:''}</div>
+                              <div style={{width:'100%',height:h,background:isLatest?'linear-gradient(180deg,#ff6b9d,#cc44ff)':'#2a2a36',borderRadius:'4px 4px 0 0'}}/>
+                              <div style={{fontSize:7,color:'#333'}}>
+                                {new Date(l.logged_date).toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'})}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{background:'#1e1e26',borderRadius:20,padding:24,border:'1px solid #2a2a36'}}>
+                    <div style={{fontSize:12,color:'#ff6b9d',fontWeight:700,marginBottom:16}}>記録一覧</div>
+                    {[...weightLogs].reverse().map((l,i,arr)=>(
+                      <div key={l.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 0',borderBottom:'1px solid #1a1a22'}}>
+                        <div>
+                          <div style={{display:'flex',alignItems:'center',gap:8}}>
+                            <span style={{fontSize:15,fontWeight:800,color:'#ff6b9d'}}>{l.weight}kg</span>
+                            {l.body_fat && <span style={{fontSize:12,color:'#cc44ff',fontWeight:700}}>体脂肪{l.body_fat}%</span>}
+                          </div>
+                          <div style={{fontSize:11,color:'#444',marginTop:2}}>
+                            {new Date(l.logged_date).toLocaleDateString('ja-JP')}
+                            {l.memo && ` · ${l.memo}`}
+                          </div>
+                        </div>
+                        <div style={{display:'flex',alignItems:'center',gap:8}}>
+                          {i < arr.length - 1 && arr[i+1] && (
+                            <span style={{fontSize:11,color:l.weight < arr[i+1].weight?'#39ff14':'#ff4455',fontWeight:600}}>
+                              {l.weight < arr[i+1].weight ? '▼' : '▲'}
+                              {Math.abs(l.weight - arr[i+1].weight).toFixed(1)}
+                            </span>
+                          )}
+                          <button onClick={()=>deleteWeight(l.id)}
+                            style={{background:'transparent',border:'1px solid #2a2a36',borderRadius:6,color:'#444',fontSize:11,padding:'3px 8px',cursor:'pointer'}}>
+                            削除
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {weightLogs.length === 0 && (
+                <div style={{background:'#1e1e26',borderRadius:20,padding:'40px 24px',border:'1px solid #2a2a36',textAlign:'center'}}>
+                  <div style={{fontSize:40,marginBottom:12}}>⚖️</div>
+                  <div style={{fontSize:16,fontWeight:700,marginBottom:8}}>体重を記録しよう</div>
+                  <div style={{fontSize:13,color:'#555'}}>毎日記録することで変化が見えてきます！</div>
+                </div>
+              )}
+            </div>
+          )}
+
           {tab==='exercise'&&(
             <div>
               <div style={{background:'#1e1e26',borderRadius:20,padding:'24px',border:'1px solid #2a2a36',marginBottom:12}}>
@@ -277,7 +429,6 @@ export default function ProgressPage() {
                   </div>
                 ))}
               </div>
-
               <div style={{background:'#1e1e26',borderRadius:20,padding:'24px',border:'1px solid #2a2a36'}}>
                 <div style={{fontSize:12,color:'#39ff14',fontWeight:700,marginBottom:16}}>最近の種目記録</div>
                 {exerciseLogs.slice(0,10).map((l,i)=>(
@@ -293,7 +444,6 @@ export default function ProgressPage() {
             </div>
           )}
 
-          {/* 履歴タブ */}
           {tab==='history'&&(
             <div style={{background:'#1e1e26',borderRadius:20,padding:'24px',border:'1px solid #2a2a36'}}>
               <div style={{fontSize:12,color:'#ffd60a',fontWeight:700,marginBottom:4}}>トレーニング履歴</div>
