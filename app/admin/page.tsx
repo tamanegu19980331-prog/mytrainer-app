@@ -13,6 +13,10 @@ export default function AdminPage() {
   const [logs, setLogs] = useState<any[]>([])
   const [schedule, setSchedule] = useState<any[]>([])
   const [diagLogs, setDiagLogs] = useState<any[]>([])
+  const [posts, setPosts] = useState<any[]>([])
+  const [reports, setReports] = useState<any[]>([])
+  const [ngWords, setNgWords] = useState<any[]>([])
+  const [newNgWord, setNewNgWord] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [editMenu, setEditMenu] = useState<any>(null)
   const [form, setForm] = useState({
@@ -47,6 +51,12 @@ export default function AdminPage() {
     const s = await supabase.from('weekly_schedule').select('*').order('day_of_week', { ascending: true })
     if (s.data) setSchedule(s.data)
     if (d.data) setDiagLogs(d.data)
+    const p = await supabase.from('posts').select('*').order('created_at', { ascending: false })
+    if (p.data) setPosts(p.data)
+    const r = await supabase.from('post_reports').select('*, posts(content, user_name)').order('created_at', { ascending: false })
+    if (r.data) setReports(r.data)
+    const ng = await supabase.from('ng_words').select('*').order('created_at', { ascending: false })
+    if (ng.data) setNgWords(ng.data)
   }
 
   const updateUserType = async (userId: string, userType: string) => {
@@ -80,6 +90,25 @@ export default function AdminPage() {
     await loadAll()
   }
 
+  const deletePost = async (id: string) => {
+    if (!confirm('この投稿を削除しますか？')) return
+    await supabase.from('posts').delete().eq('id', id)
+    setPosts(ps => ps.filter(p => p.id !== id))
+    setReports(rs => rs.filter(r => r.post_id !== id))
+  }
+
+  const addNgWord = async () => {
+    if (!newNgWord.trim()) return
+    await supabase.from('ng_words').insert({ word: newNgWord.trim() })
+    setNewNgWord('')
+    await loadAll()
+  }
+
+  const deleteNgWord = async (id: string) => {
+    await supabase.from('ng_words').delete().eq('id', id)
+    setNgWords(ws => ws.filter(w => w.id !== id))
+  }
+
   const startEdit = (m: any) => {
     setEditMenu(m)
     setForm({
@@ -93,6 +122,12 @@ export default function AdminPage() {
     setShowForm(true)
   }
 
+  // 通報数カウント
+  const reportCountByPost: Record<string, number> = {}
+  reports.forEach(r => {
+    reportCountByPost[r.post_id] = (reportCountByPost[r.post_id] || 0) + 1
+  })
+
   const TYPES = ['ハイスタート型','三日坊主型','食事変えたくない型','会食多い型','コンビニ派','お酒飲む型','甘いもの依存型','楽したい型','健康意識高い型','リバウンド経験者型','ガチ勢型','初心者型']
 
   const inp: any = {
@@ -102,26 +137,18 @@ export default function AdminPage() {
   }
 
   const POSTURE_LABELS: Record<string, string> = {
-    anterior_tilt: '骨盤前傾',
-    posterior_tilt: '骨盤後傾',
-    rounded_shoulders: '巻き肩',
-    kyphosis: '猫背',
-    straight_neck: 'ストレートネック',
-    elevated_shoulders: '肩の挙上',
-    o_legs: 'O脚',
-    x_legs: 'X脚',
-    xo_legs: 'XO脚',
+    anterior_tilt: '骨盤前傾', posterior_tilt: '骨盤後傾', rounded_shoulders: '巻き肩',
+    kyphosis: '猫背', straight_neck: 'ストレートネック', elevated_shoulders: '肩の挙上',
+    o_legs: 'O脚', x_legs: 'X脚', xo_legs: 'XO脚',
   }
 
   const PIE_COLORS = ['#39ff14','#00c8ff','#ffd60a','#ff6b9d','#cc44ff','#ff8c00','#ff4455']
 
-  // KPI計算
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
   const activeUsers = new Set(logs.filter(l => new Date(l.created_at) > sevenDaysAgo).map(l => l.user_id)).size
   const totalUsers = users.filter(u => !u.is_admin).length
   const retentionRate = totalUsers > 0 ? Math.round((activeUsers / totalUsers) * 100) : 0
 
-  // 人気メニューランキング（体力テスト除外・ユーザーごとの初回メニューのみ）
   const firstMenuByUser: Record<string, string> = {}
   const adminIds = new Set(users.filter(u => u.is_admin).map(u => u.id))
   ;[...logs].reverse().forEach(l => {
@@ -135,7 +162,6 @@ export default function AdminPage() {
   })
   const menuRanking = Object.entries(menuCount).sort((a, b) => b[1] - a[1]).slice(0, 5)
 
-  // ユーザータイプ分布
   const typeCount: Record<string, number> = {}
   users.filter(u => !u.is_admin && u.user_type).forEach(u => {
     typeCount[u.user_type] = (typeCount[u.user_type] || 0) + 1
@@ -143,7 +169,6 @@ export default function AdminPage() {
   const typeRanking = Object.entries(typeCount).sort((a,b) => b[1]-a[1]).slice(0,5)
   const typePieData = typeRanking.map(([name, value]) => ({ name, value }))
 
-  // 姿勢タイプ分布（ユーザーごとに最新データのみ集計）
   const latestPostureByUser: Record<string, string[]> = {}
   diagLogs.forEach(d => {
     if (d.posture && d.user_id && !latestPostureByUser[d.user_id]) {
@@ -161,8 +186,7 @@ export default function AdminPage() {
   Object.entries(postureUserCount).forEach(([k, v]) => { postureCount[k] = v.size })
   const postureRanking = Object.entries(postureCount).sort((a, b) => b[1] - a[1]).slice(0, 5)
   const posturePieData = postureRanking.map(([key, value]) => ({
-    name: POSTURE_LABELS[key] || key,
-    value,
+    name: POSTURE_LABELS[key] || key, value,
   }))
 
   const CustomTooltip = ({ active, payload }: any) => {
@@ -184,6 +208,8 @@ export default function AdminPage() {
   )
   if (!isAdmin) return null
 
+  const reportedPostIds = new Set(Object.keys(reportCountByPost))
+
   return (
     <div style={{background:'#16161a',minHeight:'100vh',color:'#e8e8e8'}}>
       <div style={{padding:'14px 20px',borderBottom:'1px solid #2a2a36',display:'flex',alignItems:'center',justifyContent:'space-between',background:'#1e1e26',position:'sticky',top:0,zIndex:10}}>
@@ -195,8 +221,29 @@ export default function AdminPage() {
       </div>
 
       <div style={{display:'flex',gap:6,padding:'14px 16px 0',overflowX:'auto'}}>
-        {[['dashboard','ダッシュボード'],['users','ユーザー'],['menus','メニュー'],['logs','履歴']].map(([k,l])=>(
-          <button key={k} onClick={()=>setTab(k)} style={{flexShrink:0,padding:'9px 14px',background:tab===k?'#39ff14':'#1e1e26',color:tab===k?'#000':'#666',border:'1px solid '+(tab===k?'#39ff14':'#2a2a36'),borderRadius:10,fontSize:11,fontWeight:700,cursor:'pointer'}}>{l}</button>
+        {[
+          ['dashboard','ダッシュボード'],
+          ['users','ユーザー'],
+          ['menus','メニュー'],
+          ['logs','履歴'],
+          ['community','コミュニティ'],
+        ].map(([k,l])=>(
+          <button key={k} onClick={()=>setTab(k)}
+            style={{
+              flexShrink:0, padding:'9px 14px',
+              background: tab===k ? (k==='community'?'#cc44ff':'#39ff14') : '#1e1e26',
+              color: tab===k ? '#000' : '#666',
+              border:'1px solid '+(tab===k?(k==='community'?'#cc44ff':'#39ff14'):'#2a2a36'),
+              borderRadius:10, fontSize:11, fontWeight:700, cursor:'pointer',
+              position: 'relative',
+            }}>
+            {l}
+            {k==='community' && reportedPostIds.size > 0 && (
+              <span style={{position:'absolute',top:-4,right:-4,width:16,height:16,background:'#ff4455',borderRadius:'50%',fontSize:9,fontWeight:800,color:'#fff',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                {reportedPostIds.size}
+              </span>
+            )}
+          </button>
         ))}
       </div>
 
@@ -204,7 +251,6 @@ export default function AdminPage() {
 
         {tab==='dashboard'&&(
           <div>
-            {/* KPIカード */}
             <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:10,marginBottom:16}}>
               {[
                 {label:'総ユーザー数',value:totalUsers,color:'#39ff14'},
@@ -219,7 +265,6 @@ export default function AdminPage() {
               ))}
             </div>
 
-            {/* 人気メニューランキング */}
             <div style={{background:'#1e1e26',borderRadius:12,padding:'16px',border:'1px solid #2a2a36',marginBottom:14}}>
               <div style={{fontSize:10,color:'#39ff14',fontWeight:700,letterSpacing:1,marginBottom:4}}>人気メニューランキング</div>
               <div style={{fontSize:9,color:'#444',marginBottom:12}}>※ユーザーごとの初回メニューを集計</div>
@@ -233,7 +278,6 @@ export default function AdminPage() {
               ))}
             </div>
 
-            {/* ユーザータイプ分布 円グラフ */}
             <div style={{background:'#1e1e26',borderRadius:12,padding:'16px',border:'1px solid #2a2a36',marginBottom:14}}>
               <div style={{fontSize:10,color:'#ffd60a',fontWeight:700,letterSpacing:1,marginBottom:12}}>ユーザータイプ分布</div>
               {typePieData.length===0&&<div style={{color:'#444',fontSize:12}}>まだデータがありません</div>}
@@ -242,8 +286,7 @@ export default function AdminPage() {
                   <ResponsiveContainer width="100%" height={200}>
                     <PieChart>
                       <Pie data={typePieData} cx="50%" cy="50%" outerRadius={80} dataKey="value"
-label={(props) => `${((props.percent||0)*100).toFixed(0)}%`}
-                        labelLine={false}>
+                        label={(props) => `${((props.percent||0)*100).toFixed(0)}%`} labelLine={false}>
                         {typePieData.map((_,index)=>(
                           <Cell key={index} fill={PIE_COLORS[index%PIE_COLORS.length]}/>
                         ))}
@@ -264,7 +307,6 @@ label={(props) => `${((props.percent||0)*100).toFixed(0)}%`}
               )}
             </div>
 
-            {/* 姿勢タイプ分布 円グラフ */}
             <div style={{background:'#1e1e26',borderRadius:12,padding:'16px',border:'1px solid #2a2a36'}}>
               <div style={{fontSize:10,color:'#cc44ff',fontWeight:700,letterSpacing:1,marginBottom:4}}>姿勢タイプ分布</div>
               <div style={{fontSize:9,color:'#444',marginBottom:12}}>※ユーザーごとの最新データを集計</div>
@@ -381,6 +423,87 @@ label={(props) => `${((props.percent||0)*100).toFixed(0)}%`}
                 <div style={{fontSize:10,color:'#666'}}>タイプ: {l.user_type||'未設定'}</div>
               </div>
             ))}
+          </div>
+        )}
+
+        {tab==='community'&&(
+          <div>
+            {/* 通報一覧 */}
+            <div style={{background:'#1e1e26',borderRadius:12,padding:'16px',border:'1px solid #ff4455',marginBottom:16}}>
+              <div style={{fontSize:11,color:'#ff4455',fontWeight:700,marginBottom:12}}>
+                🚩 通報された投稿（{reportedPostIds.size}件）
+              </div>
+              {reportedPostIds.size === 0 && (
+                <div style={{color:'#444',fontSize:12,textAlign:'center',padding:'12px 0'}}>通報はありません</div>
+              )}
+              {posts.filter(p => reportedPostIds.has(p.id)).map(p => (
+                <div key={p.id} style={{background:'#25252f',borderRadius:10,padding:'12px 14px',marginBottom:8,border:'1px solid rgba(255,68,85,0.3)'}}>
+                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
+                    <div style={{fontSize:12,fontWeight:700}}>{p.user_name}</div>
+                    <span style={{fontSize:11,color:'#ff4455',fontWeight:700}}>通報数: {reportCountByPost[p.id]}</span>
+                  </div>
+                  <div style={{fontSize:13,color:'#888',marginBottom:10,lineHeight:1.6}}>{p.content}</div>
+                  <button onClick={()=>deletePost(p.id)}
+                    style={{padding:'6px 14px',background:'rgba(255,68,85,0.1)',border:'1px solid rgba(255,68,85,0.3)',borderRadius:8,color:'#ff4455',fontSize:11,fontWeight:700,cursor:'pointer'}}>
+                    🗑 削除する
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* 全投稿一覧 */}
+            <div style={{background:'#1e1e26',borderRadius:12,padding:'16px',border:'1px solid #2a2a36',marginBottom:16}}>
+              <div style={{fontSize:11,color:'#cc44ff',fontWeight:700,marginBottom:12}}>
+                💬 全投稿一覧（{posts.length}件）
+              </div>
+              {posts.map(p => (
+                <div key={p.id} style={{background:'#25252f',borderRadius:10,padding:'12px 14px',marginBottom:8,border:`1px solid ${reportedPostIds.has(p.id)?'rgba(255,68,85,0.3)':'#2a2a36'}`}}>
+                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
+                    <div style={{fontSize:12,fontWeight:700}}>{p.user_name}</div>
+                    <div style={{display:'flex',gap:6,alignItems:'center'}}>
+                      {reportedPostIds.has(p.id) && (
+                        <span style={{fontSize:10,color:'#ff4455'}}>🚩{reportCountByPost[p.id]}</span>
+                      )}
+                      <span style={{fontSize:10,color:'#444'}}>{new Date(p.created_at).toLocaleDateString('ja-JP')}</span>
+                    </div>
+                  </div>
+                  <div style={{fontSize:12,color:'#888',marginBottom:8,lineHeight:1.5}}>{p.content}</div>
+                  <button onClick={()=>deletePost(p.id)}
+                    style={{padding:'4px 10px',background:'transparent',border:'1px solid #ff4455',borderRadius:6,color:'#ff4455',fontSize:10,cursor:'pointer'}}>
+                    削除
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* NGワード管理 */}
+            <div style={{background:'#1e1e26',borderRadius:12,padding:'16px',border:'1px solid #2a2a36'}}>
+              <div style={{fontSize:11,color:'#ffd60a',fontWeight:700,marginBottom:12}}>🚫 NGワード管理</div>
+              <div style={{display:'flex',gap:8,marginBottom:12}}>
+                <input
+                  value={newNgWord}
+                  onChange={e=>setNewNgWord(e.target.value)}
+                  onKeyDown={e=>e.key==='Enter'&&addNgWord()}
+                  placeholder="NGワードを追加"
+                  style={{flex:1,background:'#25252f',border:'1px solid #2a2a36',borderRadius:8,padding:'8px 12px',color:'#e8e8e8',fontSize:12,outline:'none'}}
+                />
+                <button onClick={addNgWord}
+                  style={{padding:'8px 14px',background:'#ffd60a',border:'none',borderRadius:8,color:'#000',fontSize:11,fontWeight:700,cursor:'pointer'}}>
+                  追加
+                </button>
+              </div>
+              <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                {ngWords.map(w => (
+                  <div key={w.id} style={{display:'flex',alignItems:'center',gap:4,background:'rgba(255,68,85,0.1)',border:'1px solid rgba(255,68,85,0.3)',borderRadius:20,padding:'4px 10px'}}>
+                    <span style={{fontSize:12,color:'#ff4455'}}>{w.word}</span>
+                    <button onClick={()=>deleteNgWord(w.id)}
+                      style={{background:'none',border:'none',color:'#ff4455',fontSize:14,cursor:'pointer',padding:0,lineHeight:1}}>
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
