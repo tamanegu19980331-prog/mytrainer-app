@@ -612,7 +612,7 @@ export default function MenuPage() {
 
     return (
       <div style={{background:'#16161a',minHeight:'100vh',color:'#e8e8e8'}}>
-        <div style={{maxWidth:480,margin:'0 auto',padding:'24px 24px 40px'}}>
+        <div style={{maxWidth:480,margin:'0 auto',padding:'24px 24px 120px'}}>
           <div style={{marginBottom:20}}>
             <div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'#666',marginBottom:8}}>
               <span>種目 {currentExIdx+1} / {allExercises.length}</span>
@@ -719,7 +719,7 @@ export default function MenuPage() {
 
   return (
     <div style={{background:'#16161a',minHeight:'100vh',color:'#e8e8e8'}}>
-      <div style={{maxWidth:480,margin:'0 auto',padding:'0 0 60px'}}>
+      <div style={{maxWidth:480,margin:'0 auto',padding:'0 0 120px'}}>
         <div style={{padding:'20px 24px',borderBottom:'1px solid #1e1e26',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
           <div>
             <div style={{fontSize:11,color:'#39ff14',fontWeight:700,letterSpacing:2,marginBottom:2}}>TODAY'S MENU</div>
