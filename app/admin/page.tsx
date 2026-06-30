@@ -145,7 +145,8 @@ export default function AdminPage() {
   const PIE_COLORS = ['#39ff14','#00c8ff','#ffd60a','#ff6b9d','#cc44ff','#ff8c00','#ff4455']
 
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-  const activeUsers = new Set(logs.filter(l => new Date(l.created_at) > sevenDaysAgo).map(l => l.user_id)).size
+  const adminIdSet = new Set(users.filter(u => u.is_admin).map(u => u.id))
+  const activeUsers = new Set(logs.filter(l => new Date(l.created_at) > sevenDaysAgo && !adminIdSet.has(l.user_id)).map(l => l.user_id)).size
   const totalUsers = users.filter(u => !u.is_admin).length
   const retentionRate = totalUsers > 0 ? Math.round((activeUsers / totalUsers) * 100) : 0
 
