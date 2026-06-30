@@ -354,10 +354,15 @@ export default function AdminPage() {
                 </div>
                 <div style={{display:'flex',gap:8,alignItems:'center'}}>
                   <span style={{fontSize:10,color:'#666'}}>タイプ:</span>
-                  <select value={u.user_type||''} onChange={e=>updateUserType(u.id,e.target.value)} style={{flex:1,background:'#25252f',border:'1px solid #2a2a36',borderRadius:6,padding:'4px 8px',color:'#e8e8e8',fontSize:11,outline:'none'}}>
-                    <option value=''>未分類</option>
-                    {TYPES.map(t=><option key={t} value={t}>{t}</option>)}
-                  </select>
+                  <div style={{flex:1,display:'flex',alignItems:'center',gap:8}}>
+                    <span style={{flex:1,fontSize:11,color:u.user_type?'#39ff14':'#555',background:'#25252f',border:'1px solid #2a2a36',borderRadius:6,padding:'4px 8px'}}>
+                      {u.user_type || '未分類（AI診断待ち）'}
+                    </span>
+                    <select value='' onChange={e=>{if(e.target.value)updateUserType(u.id,e.target.value)}} style={{background:'#25252f',border:'1px solid #2a2a36',borderRadius:6,padding:'4px 6px',color:'#666',fontSize:10,outline:'none'}}>
+                      <option value=''>手動変更</option>
+                      {TYPES.map(t=><option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
                 </div>
               </div>
             ))}
