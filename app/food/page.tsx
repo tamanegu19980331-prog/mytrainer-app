@@ -40,6 +40,10 @@ export default function FoodPage() {
   const [logs, setLogs] = useState<any[]>([])
   const [userId, setUserId] = useState<string>('')
   const [userProfile, setUserProfile] = useState<any>(null)
+  const [foodProfile, setFoodProfile] = useState<any>(null)
+  const [mealPlan, setMealPlan] = useState<any>(null)
+  const [mealPlanLoading, setMealPlanLoading] = useState(false)
+  const [mealPlanChecked, setMealPlanChecked] = useState(false)
   const [activityLevel, setActivityLevel] = useState<number>(1.2)
   const [selectedMeal, setSelectedMeal] = useState<string>('breakfast')
   const [activeTab, setActiveTab] = useState<'record' | 'history'>('record')
@@ -64,6 +68,20 @@ export default function FoodPage() {
 
     const { data: profile } = await supabase.from('users').select('*').eq('id', user.id).single()
     setUserProfile(profile)
+
+    const { data: fProfile } = await supabase.from('food_profiles').select('*').eq('user_id', user.id).single()
+    setFoodProfile(fProfile)
+
+    if (fProfile) {
+      const today = new Date().toISOString().slice(0, 10)
+      const { data: existingPlan } = await supabase
+        .from('meal_plans').select('*')
+        .eq('user_id', user.id)
+        .eq('plan_date', today)
+        .single()
+      if (existingPlan) setMealPlan(existingPlan.plan_data)
+      setMealPlanChecked(true)
+    }
 
     // 直近7日のトレーニング回数から活動量を自動計算
     const from = new Date()
@@ -175,6 +193,37 @@ setActivityLevel(level)
   const targetCalories = userProfile ? calcTargetCalories(userProfile, activityLevel) : 2000
   const targetProtein = userProfile ? calcTargetProtein(userProfile) : 100
 
+  const generateMealPlan = async () => {
+    setMealPlanLoading(true)
+    try {
+      const res = await fetch('/api/generate-meal-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          profile: userProfile,
+          foodProfile,
+          goal: userProfile?.goal,
+          targetCalories,
+          targetProtein,
+        }),
+      })
+      const data = await res.json()
+      setMealPlan(data)
+      if (userId) {
+        const today = new Date().toISOString().slice(0, 10)
+        await supabase.from('meal_plans').upsert({
+          user_id: userId,
+          plan_date: today,
+          plan_data: data,
+        }, { onConflict: 'user_id,plan_date' })
+      }
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setMealPlanLoading(false)
+    }
+  }
+
   const totalCalories = logs.reduce((s, l) => s + (l.calories || 0), 0)
   const totalProtein  = logs.reduce((s, l) => s + (Number(l.protein) || 0), 0)
   const totalCarbs    = logs.reduce((s, l) => s + (Number(l.carbs) || 0), 0)
@@ -213,9 +262,8 @@ setActivityLevel(level)
 
   return (
     <div style={{ background: '#16161a', minHeight: '100vh', color: '#e8e8e8' }}>
-      <div style={{ maxWidth: 480, margin: '0 auto', padding: '0 0 80px' }}>
+      <div style={{ maxWidth: 480, margin: '0 auto', padding: '0 0 100px' }}>
 
-        {/* ヘッダー */}
         <div style={{
           padding: '20px 24px', display: 'flex', alignItems: 'center', gap: 12,
           borderBottom: '1px solid #1e1e26',
@@ -244,7 +292,6 @@ setActivityLevel(level)
           />
         </div>
 
-        {/* タブ */}
         <div style={{ display: 'flex', borderBottom: '1px solid #1e1e26' }}>
           {[
             { key: 'record', label: '📋 今日の記録' },
@@ -268,7 +315,96 @@ setActivityLevel(level)
 
           {activeTab === 'record' && (
             <>
-              {/* カロリー進捗 */}
+              {!foodProfile ? (
+                <div onClick={() => router.push('/food-onboarding')}
+                  style={{
+                    background: 'linear-gradient(135deg,rgba(255,140,0,0.12),rgba(255,68,85,0.06))',
+                    border: '1px solid rgba(255,140,0,0.3)', borderRadius: 20,
+                    padding: '20px 22px', marginBottom: 16, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: 14,
+                  }}>
+                  <div style={{ fontSize: 32 }}>🍱</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: '#ff8c00', marginBottom: 4 }}>
+                      あなたに合った食事診断をしませんか？
+                    </div>
+                    <div style={{ fontSize: 12, color: '#888', lineHeight: 1.6 }}>
+                      生活スタイルを教えてください。あなた専用の食事プランを提案します
+                    </div>
+                  </div>
+                  <span style={{ color: '#ff8c00', fontSize: 18 }}>→</span>
+                </div>
+              ) : (
+                <div style={{
+                  background: '#1e1e26', borderRadius: 20, padding: 24,
+                  border: '1px solid #2a2a36', marginBottom: 16,
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                    <div>
+                      <div style={{ fontSize: 11, color: '#39ff14', fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>あなた専用</div>
+                      <div style={{ fontSize: 14, fontWeight: 800 }}>今日のおすすめ献立</div>
+                    </div>
+                    <button onClick={() => router.push('/food-onboarding')}
+                      style={{ background: 'transparent', border: '1px solid #2a2a36', borderRadius: 8, color: '#555', fontSize: 11, padding: '5px 10px', cursor: 'pointer' }}>
+                      設定変更
+                    </button>
+                  </div>
+
+                  {!mealPlan && !mealPlanLoading && mealPlanChecked && (
+                    <button onClick={generateMealPlan}
+                      style={{
+                        width: '100%', padding: '14px',
+                        background: 'linear-gradient(135deg,#39ff14,#00c8ff)',
+                        color: '#000', border: 'none', borderRadius: 14,
+                        fontSize: 14, fontWeight: 800, cursor: 'pointer',
+                      }}>
+                      🤖 {foodProfile.diet_type}向けの今日の献立を生成する
+                    </button>
+                  )}
+
+                  {mealPlanLoading && (
+                    <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                      <div style={{ fontSize: 28, marginBottom: 8 }}>🤖</div>
+                      <div style={{ fontSize: 12, color: '#888' }}>あなたに合った献立を考えています...</div>
+                    </div>
+                  )}
+
+                  {mealPlan && !mealPlanLoading && (
+                    <div>
+                      {mealPlan.summary && (
+                        <div style={{ fontSize: 12, color: '#888', lineHeight: 1.7, marginBottom: 14 }}>{mealPlan.summary}</div>
+                      )}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
+                        {mealPlan.meals?.map((meal: any, i: number) => (
+                          <div key={i} style={{ background: '#25252f', borderRadius: 14, padding: '14px 16px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                              <div style={{ fontSize: 13, fontWeight: 700, color: '#39ff14' }}>{meal.label}</div>
+                              <div style={{ fontSize: 12, color: '#888' }}>{meal.calories}kcal · P{meal.protein}g</div>
+                            </div>
+                            <div style={{ fontSize: 12, color: '#aaa', marginBottom: 4 }}>
+                              {meal.items?.join(' / ')}
+                            </div>
+                            {meal.note && <div style={{ fontSize: 11, color: '#555', lineHeight: 1.6 }}>📌 {meal.note}</div>}
+                          </div>
+                        ))}
+                      </div>
+                      {mealPlan.tips?.length > 0 && (
+                        <div style={{ background: 'rgba(57,255,20,0.06)', border: '1px solid rgba(57,255,20,0.15)', borderRadius: 12, padding: '12px 14px', marginBottom: 10 }}>
+                          <div style={{ fontSize: 11, color: '#39ff14', fontWeight: 700, marginBottom: 6 }}>💡 アドバイス</div>
+                          {mealPlan.tips.map((t: string, i: number) => (
+                            <div key={i} style={{ fontSize: 12, color: '#888', marginBottom: 4, lineHeight: 1.6 }}>・{t}</div>
+                          ))}
+                        </div>
+                      )}
+                      <button onClick={generateMealPlan}
+                        style={{ width: '100%', padding: '10px', background: 'transparent', border: '1px solid #2a2a36', borderRadius: 10, color: '#555', fontSize: 12, cursor: 'pointer' }}>
+                        🔄 別の今日の献立に変える
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div style={{
                 background: '#1e1e26', borderRadius: 20, padding: 24,
                 border: '1px solid #2a2a36', marginBottom: 16,
@@ -337,7 +473,6 @@ setActivityLevel(level)
                 </div>
               </div>
 
-              {/* ミールタイム別記録 */}
               <div style={{
                 background: '#1e1e26', borderRadius: 20, padding: 24,
                 border: '1px solid #2a2a36', marginBottom: 16,
@@ -389,7 +524,6 @@ setActivityLevel(level)
                 ))}
               </div>
 
-              {/* 食事を追加 */}
               <div style={{
                 background: '#1e1e26', borderRadius: 20, padding: 24,
                 border: '1px solid #2a2a36', marginBottom: 16,
