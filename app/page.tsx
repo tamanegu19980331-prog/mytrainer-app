@@ -79,11 +79,11 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* 3つの強み */}
-      <div style={{padding:'60px 24px',maxWidth:480,margin:'0 auto'}}>
+     {/* 4つの強み */}
+     <div style={{padding:'60px 24px',maxWidth:480,margin:'0 auto'}}>
         <div style={{textAlign:'center',marginBottom:40}}>
           <div style={{fontSize:11,color:'#39ff14',fontWeight:700,letterSpacing:2,marginBottom:8}}>FEATURES</div>
-          <div style={{fontSize:24,fontWeight:800}}>3つの強み</div>
+          <div style={{fontSize:24,fontWeight:800}}>4つの強み</div>
         </div>
         <div style={{display:'flex',flexDirection:'column',gap:16}}>
           {[
@@ -92,6 +92,12 @@ export default function LandingPage() {
               title:'AIが毎日最適メニューを生成',
               desc:'あなたの体力・姿勢・目標データをもとに、AIが最適なトレーニングメニューを毎日自動生成。同じメニューの繰り返しにならない。',
               color:'#39ff14',
+            },
+            {
+              emoji:'🍱',
+              title:'生活スタイルに合わせた食事サポート',
+              desc:'コンビニ派・外食多め・自炊できるなど、生活スタイルを診断しプロの管理栄養士監修であなた専用の献立を毎日提案。無理なく続けられる食事管理を徹底サポートします。',
+              color:'#ff8c00',
             },
             {
               emoji:'👨‍💼',
