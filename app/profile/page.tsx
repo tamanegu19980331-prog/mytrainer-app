@@ -142,11 +142,24 @@ export default function ProfilePage() {
               <div style={{ fontSize: 12, color: '#666', fontWeight: 700 }}>⚙️ アプリ設定</div>
             </div>
             {[{ label: '🔔 プッシュ通知', sub: '近日公開予定' }, { label: '🌐 表示言語', sub: '日本語' }].map((item, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderBottom: '1px solid #1a1a22' }}>
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderBottom: '1px solid #1a1a22'}}>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 600 }}>{item.label}</div>
                   <div style={{ fontSize: 11, color: '#444', marginTop: 2 }}>{item.sub}</div>
                 </div>
+                <span style={{ color: '#444', fontSize: 16 }}>→</span>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ background: '#1e1e26', borderRadius: 20, border: '1px solid #2a2a36', marginBottom: 16, overflow: 'hidden' }}>
+            <div style={{ padding: '16px 24px', borderBottom: '1px solid #1a1a22'}}>
+              <div style={{ fontSize: 12, color: '#666', fontWeight: 700 }}>📄 規約・ポリシー</div>
+            </div>
+            {[{ label: '利用規約', path: '/terms' }, { label: 'プライバシーポリシー', path: '/privacy' }].map((item, i) => (
+              <div key={i} onClick={() => router.push(item.path)}
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderBottom: '1px solid #1a1a22', cursor: 'pointer'}}>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>{item.label}</div>
                 <span style={{ color: '#444', fontSize: 16 }}>→</span>
               </div>
             ))}

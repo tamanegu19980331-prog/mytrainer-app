@@ -194,7 +194,7 @@ export default function AuthPage() {
                 </div>
               )}
 
-              <button onClick={handleAuth}
+<button onClick={handleAuth}
                 disabled={loading||!email||!password}
                 style={{
                   width:'100%',padding:'18px',
@@ -209,6 +209,12 @@ export default function AuthPage() {
                 }}>
                 {loading?'処理中...':(tab==='login'?'ログイン':'アカウントを作成')}
               </button>
+
+              {tab==='register'&&(
+                <div style={{textAlign:'center',marginTop:16,fontSize:11,color:'#555',lineHeight:1.8}}>
+                  登録すると<button onClick={()=>router.push('/terms')} style={{background:'none',border:'none',color:'#39ff14',fontSize:11,cursor:'pointer',textDecoration:'underline',padding:0}}>利用規約</button>と<button onClick={()=>router.push('/privacy')} style={{background:'none',border:'none',color:'#39ff14',fontSize:11,cursor:'pointer',textDecoration:'underline',padding:0}}>プライバシーポリシー</button>に同意したものとみなされます
+                </div>
+              )}
             </div>
           </>
         )}
