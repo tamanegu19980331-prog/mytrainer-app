@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import Avatar from '@/app/components/Avatar'
 
 const LEVELS = [
   {lv:1,title:'入門者',minExp:0},
@@ -127,13 +128,14 @@ export default function DashboardPage() {
             border:'1px solid #2a2a36',marginBottom:16,
           }}>
             <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:20}}>
-              <div style={{
-                width:72,height:72,borderRadius:'50%',
-                background:'linear-gradient(135deg,#39ff14,#00c8ff)',
-                display:'flex',alignItems:'center',justifyContent:'center',
-                fontSize:32,flexShrink:0,
-              }}>
-                {lvEmoji}
+              <div style={{flexShrink:0}}>
+                <Avatar
+                  level={curLv.lv}
+                  gender={profile.avatar_gender || 'male'}
+                  skin={profile.avatar_skin || 'light'}
+                  bmi={profile.weight && profile.height ? profile.weight / ((profile.height / 100) ** 2) : undefined}
+                  size={80}
+                />
               </div>
               <div style={{flex:1}}>
                 <div style={{fontSize:13,color:'#666',marginBottom:4}}>現在のレベル</div>
