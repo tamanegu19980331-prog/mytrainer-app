@@ -1,0 +1,36 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
+
+export async function POST(req: NextRequest) {
+  try {
+    const token = req.headers.get('authorization')?.replace('Bearer ', '')
+    if (!token) {
+      return NextResponse.json({ error: '認証が必要です' }, { status: 401 })
+    }
+
+    // トークンからユーザーを取得
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
+    if (authError || !user) {
+      return NextResponse.json({ error: '認証に失敗しました' }, { status: 401 })
+    }
+
+    // usersテーブルのデータを削除
+    await supabaseAdmin.from('users').delete().eq('id', user.id)
+
+    // auth.usersからユーザーを削除
+    const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(user.id)
+    if (deleteError) {
+      return NextResponse.json({ error: '削除に失敗しました' }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (e) {
+    console.error(e)
+    return NextResponse.json({ error: 'サーバーエラーが発生しました' }, { status: 500 })
+  }
+}

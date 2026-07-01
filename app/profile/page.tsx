@@ -165,8 +165,35 @@ export default function ProfilePage() {
             ))}
           </div>
 
-          <button onClick={signOut} style={{ width: '100%', padding: '16px', background: 'transparent', border: '1px solid #ff4455', borderRadius: 14, color: '#ff4455', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+          <button onClick={signOut} style={{ width: '100%', padding: '16px', background: 'transparent', border: '1px solid #ff4455', borderRadius: 14, color: '#ff4455', fontSize: 14, fontWeight: 700, cursor: 'pointer', marginBottom: 12 }}>
             ログアウト
+          </button>
+
+          <button onClick={async () => {
+            if (!confirm('本当にアカウントを削除しますか？\nこの操作は取り消せません。全てのデータが削除されます。')) return
+            if (!confirm('最終確認です。本当に削除しますか？')) return
+            try {
+              const { data: { session } } = await supabase.auth.getSession()
+              const res = await fetch('/api/delete-account', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${session?.access_token || ''}`,
+                },
+              })
+              const data = await res.json()
+              if (data.success) {
+                await supabase.auth.signOut()
+                router.push('/')
+              } else {
+                alert('削除に失敗しました: ' + data.error)
+              }
+            } catch (e) {
+              alert('エラーが発生しました')
+            }
+          }}
+            style={{ width: '100%', padding: '14px', background: 'transparent', border: '1px solid #444', borderRadius: 14, color: '#444', fontSize: 12, cursor: 'pointer' }}>
+            アカウントを削除する
           </button>
 
         </div>
