@@ -7,7 +7,17 @@ const client = new Anthropic({
 
 export async function POST(req: NextRequest) {
   try {
-    const { imageBase64, mimeType } = await req.json()
+    const { imageBase64, mimeType, userId } = await req.json()
+
+    // レート制限チェック
+    if (userId) {
+      const token = req.headers.get('authorization')?.replace('Bearer ', '') || ''
+      const { checkRateLimit } = await import('@/lib/rateLimit')
+      const { allowed } = await checkRateLimit(userId, 'analyze-food', token)
+      if (!allowed) {
+        return NextResponse.json({ error: '本日の食事分析の利用上限(5回)に達しました。明日またご利用ください。' }, { status: 429 })
+      }
+    }
 
     const message = await client.messages.create({
       model: 'claude-sonnet-4-6',

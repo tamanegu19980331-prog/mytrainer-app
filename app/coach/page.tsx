@@ -53,16 +53,24 @@ export default function CoachPage() {
     setMessages(newMessages)
     setLoading(true)
     try {
+      const { data: { session } } = await supabase.auth.getSession()
       const res = await fetch('/api/coach', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token || ''}`,
+        },
         body: JSON.stringify({
           messages: newMessages.map(m => ({ role: m.role, content: m.content })),
           userId,
         }),
       })
       const data = await res.json()
-      setMessages(m => [...m, { role: 'assistant', content: data.message }])
+      if (data.error) {
+        setMessages(m => [...m, { role: 'assistant', content: `⚠️ ${data.error}` }])
+      } else {
+        setMessages(m => [...m, { role: 'assistant', content: data.message }])
+      }
     } catch (e) {
       setMessages(m => [...m, { role: 'assistant', content: 'すみません、エラーが発生しました。もう一度試してください。' }])
     }

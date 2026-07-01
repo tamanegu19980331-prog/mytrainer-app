@@ -11,6 +11,14 @@ const supabase = createClient(
 export async function POST(req: NextRequest) {
   try {
     const { messages, userId } = await req.json()
+    
+    // レート制限チェック
+    const token = req.headers.get('authorization')?.replace('Bearer ', '') || ''
+    const { checkRateLimit } = await import('@/lib/rateLimit')
+    const { allowed, remaining } = await checkRateLimit(userId, 'coach', token)
+    if (!allowed) {
+      return NextResponse.json({ error: '本日のAIコーチの利用上限(10回)に達しました。明日またご利用ください。' }, { status: 429 })
+    }
 
     // ユーザーデータを取得
     const [profile, fitnessLog, trainingLogs, diagLog] = await Promise.all([

@@ -154,7 +154,7 @@ setActivityLevel(level)
       const res = await fetch('/api/analyze-food', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageBase64: image, mimeType }),
+        body: JSON.stringify({ imageBase64: image, mimeType, userId }),
       })
       const data = await res.json()
       setResult(data)
